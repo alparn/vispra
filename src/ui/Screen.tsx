@@ -9,6 +9,7 @@ import type { Component } from "solid-js";
 import { For, createMemo } from "solid-js";
 import { windows, focusedWid } from "@/store";
 import { WindowFrame } from "./WindowFrame";
+import { Taskbar } from "./Taskbar";
 import "./Screen.css";
 
 export const Screen: Component = () => {
@@ -33,10 +34,10 @@ export const Screen: Component = () => {
           <WindowFrame
             wid={wid}
             focused={focusedWid() === wid}
-            onClose={undefined}
           />
         )}
       </For>
+      <Taskbar />
     </div>
   );
 };

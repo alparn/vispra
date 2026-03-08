@@ -177,6 +177,9 @@ export function setupDragResize(
       console.debug(TAG, "pointerdown IGNORED: button=", e.button, "target=", targetDesc);
       return;
     }
+    if (target.closest(".windowbtn")) {
+      return;
+    }
 
     const handle = target.dataset?.resizeHandle as ResizeHandle | undefined;
 
