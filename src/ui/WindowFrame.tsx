@@ -5,7 +5,7 @@
  */
 
 import type { Component } from "solid-js";
-import { onMount, onCleanup } from "solid-js";
+import { onMount, onCleanup, createSignal, Show } from "solid-js";
 import {
   windows,
   focusWindow,
@@ -22,6 +22,7 @@ import type { WindowState, MouseWindow } from "@/store";
 import { PACKET_TYPES } from "@/core/constants/packet-types";
 import type { ConfigureWindowPacket, BufferRefreshPacket } from "@/core/protocol/types";
 import { setupDragResize, type DragResizeRect } from "@/window/drag-resize";
+import { isMacOS } from "@/core/utils/platform";
 
 const HEADER_HEIGHT = 30;
 const BORDER_WIDTH = 1;
@@ -82,6 +83,29 @@ function sendBufferRefresh(wid: number): void {
     {},
   ] as BufferRefreshPacket);
 }
+
+const TerminalClipboardHint: Component = () => {
+  const [open, setOpen] = createSignal(false);
+  const mod = isMacOS() ? "Cmd" : "Ctrl";
+
+  return (
+    <span
+      class="terminal-hint-wrapper"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onClick={(e) => { e.stopPropagation(); setOpen(!open()); }}
+    >
+      <span class="terminal-hint-icon" title="Clipboard shortcuts">ⓘ</span>
+      <Show when={open()}>
+        <div class="terminal-hint-tooltip">
+          <strong>Clipboard Shortcuts</strong>
+          <div class="terminal-hint-row"><kbd>{mod}+C</kbd> Copy</div>
+          <div class="terminal-hint-row"><kbd>{mod}+Shift+V</kbd> Paste</div>
+        </div>
+      </Show>
+    </span>
+  );
+};
 
 export const WindowFrame: Component<WindowFrameProps> = (props) => {
   const win = (): WindowState | undefined => windows()[props.wid];
@@ -345,6 +369,9 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
         >
           <span class="windowicon" />
           <span class="windowtitle">{win()?.title ?? ""}</span>
+          <Show when={win()?.appHint === "terminal"}>
+            <TerminalClipboardHint />
+          </Show>
           {resizable() && (
             <span class="windowbuttons">
               <span
