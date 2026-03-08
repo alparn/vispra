@@ -47,14 +47,16 @@ export interface KeyboardControllerOptions {
   getClipboardDirection: () => string;
   getClipboardDelayedEventTime: () => number;
   setClipboardDelayedEventTime: (t: number) => void;
-  /** Called on Ctrl+V/Cmd+V keydown – proactive clipboard read for xterm paste */
+  /** Called on Ctrl+V/Cmd+V keydown – proactive clipboard read for standard apps */
   onPreparePasteForServer?: () => void;
-  /** Called on terminal paste – reads clipboard and sets both CLIPBOARD + PRIMARY selections */
-  onPreparePasteForTerminal?: () => void;
-  /** Suppress the next native paste event (when preparePasteForServer already handles it) */
+  /** Read clipboard and type text as keystrokes (terminal/desktop paste) */
+  onPasteAsKeystrokes?: () => void;
+  /** Suppress the next native paste event (when we already handle clipboard) */
   onSuppressNextPaste?: () => void;
   /** Returns the app hint of the currently focused window */
   getFocusedAppHint?: () => string;
+  /** Whether the focused window is a desktop/shadow root window */
+  isFocusedDesktop?: () => boolean;
   onLayoutChange?: (newLayout: string) => void;
   debug?: (category: string, ...args: unknown[]) => void;
   log?: (...args: unknown[]) => void;
@@ -81,7 +83,6 @@ export class KeyboardController {
   private browserLanguageChangeEmbargoTime = 0;
   private pendingTimeouts: ReturnType<typeof setTimeout>[] = [];
   private enableAfterInit = false;
-  private swallowModifierUps = false;
 
   constructor(options: KeyboardControllerOptions) {
     this.options = options;
@@ -255,19 +256,6 @@ export class KeyboardController {
     if (this.options.getServerReadonly()) return true;
     if (!this.getCaptureKeyboard()) return true;
 
-    if (this.swallowModifierUps) {
-      if (pressed) {
-        this.swallowModifierUps = false;
-      } else {
-        const code = event.code || "";
-        if (code === "MetaLeft" || code === "MetaRight" || code === "ShiftLeft" || code === "ShiftRight") {
-          console.log("[kbd-clipboard] swallowing stray modifier UP after terminalPaste:", code);
-          return false;
-        }
-        this.swallowModifierUps = false;
-      }
-    }
-
     let keyname = event.code || "";
     const keycode = event.which || event.keyCode;
     if (keycode === 229) return true;
@@ -395,14 +383,13 @@ export class KeyboardController {
         if (l === "v") {
           const appHint = this.options.getFocusedAppHint?.() ?? "unknown";
           const isShiftHeld = shift || rawModifiers.includes("Shift");
-          console.log("[kbd-clipboard] PASTE key, appHint=", appHint, "shift=", isShiftHeld);
-          if (appHint === "terminal" && isShiftHeld) {
-            allowDefault = true;
+          const isDesktop = this.options.isFocusedDesktop?.() ?? false;
+          console.log("[kbd-clipboard] PASTE key, appHint=", appHint, "shift=", isShiftHeld, "desktop=", isDesktop);
+          if (isShiftHeld && (appHint === "terminal" || isDesktop)) {
             terminalPaste = true;
-            this.options.setClipboardDelayedEventTime(performance.now() + CLIPBOARD_EVENT_DELAY);
             this.options.onSuppressNextPaste?.();
-            this.options.onPreparePasteForTerminal?.();
-            console.log("[kbd-clipboard] terminal paste: Cmd+Shift+V → Shift+Insert (CLIPBOARD+PRIMARY)");
+            this.options.onPasteAsKeystrokes?.();
+            console.log("[kbd-clipboard] terminal/desktop paste: Cmd+Shift+V → keystrokes");
           } else if (appHint !== "terminal") {
             allowDefault = true;
             this.options.setClipboardDelayedEventTime(performance.now() + CLIPBOARD_EVENT_DELAY);
@@ -419,15 +406,9 @@ export class KeyboardController {
 
     const wid = this.options.getFocusedWid();
     if (terminalPaste && pressed) {
-      this.swallowModifierUps = true;
-      // Shift+Insert is the universal paste shortcut that works in XTerm,
-      // gnome-terminal, Konsole, and all other Linux terminal emulators.
-      // It pastes from the CLIPBOARD selection (set via clipboard-token).
-      const shiftMods = ["shift"];
-      this.keyPackets.push([PACKET_TYPES.key_action, wid, "Shift_L", true, shiftMods, 65505, "", 16, 0]);
-      this.keyPackets.push([PACKET_TYPES.key_action, wid, "Insert", true, shiftMods, 65379, "", 45, 0]);
-      this.keyPackets.push([PACKET_TYPES.key_action, wid, "Insert", false, shiftMods, 65379, "", 45, 0]);
-      this.keyPackets.push([PACKET_TYPES.key_action, wid, "Shift_L", false, [], 65505, "", 16, 0]);
+      // Don't send any key packets for the Cmd+Shift+V itself.
+      // onPasteAsKeystrokes reads clipboard and types text directly.
+      // The subsequent modifier key-up events will flow through normally.
     } else {
       const packet: unknown[] = [PACKET_TYPES.key_action, wid, keyname, pressed, modifiers, keyval, keystring, keycode, group];
       this.keyPackets.push(packet);

@@ -46,7 +46,7 @@ import {
   setAudioBackendFlags,
   resetAudio,
 } from "@/store/audio";
-import { focusedWid, getFocusedAppHint } from "@/store/windows";
+import { focusedWid, getFocusedAppHint, windows } from "@/store/windows";
 import {
   registerMouseForwarder,
   unregisterMouseForwarder,
@@ -69,6 +69,7 @@ export interface ConnectOptions {
   startNewSession?: string | null;
   sharing?: boolean;
   steal?: boolean;
+  reconnect?: boolean;
 }
 
 export interface XpraClientCallbacks {
@@ -118,6 +119,9 @@ export class XpraClient {
 
   connect(options: ConnectOptions): void {
     settingsStore.loadSettingsFromParams();
+    if (options.reconnect !== undefined) {
+      settingsStore.updateSettings({ reconnect: options.reconnect });
+    }
     this.options = options;
     this.uri = this.buildUri(options);
     this.container = options.container ?? document.getElementById("screen");
@@ -459,11 +463,11 @@ export class XpraClient {
       openUrl: s.openUrl,
       username: this.options.username ?? s.username,
       uuid: this.uuid,
-      sharing: s.sharing,
-      steal: s.steal,
+      sharing: this.options.sharing ?? s.sharing,
+      steal: this.options.steal ?? s.steal,
       vrefresh: s.vrefresh,
       bandwidthLimit: s.bandwidthLimit,
-      startNewSession: null,
+      startNewSession: this.options.startNewSession ?? null,
       encryption: this.options.encryptionKey ? "AES-CBC" : false,
       encryptionKey: this.options.encryptionKey,
     };
@@ -661,9 +665,24 @@ export class XpraClient {
       getClipboardDelayedEventTime: () => this.clipboardDelayedEventTime,
       setClipboardDelayedEventTime: (t: number) => { this.clipboardDelayedEventTime = t; },
       onPreparePasteForServer: () => cm?.preparePasteForServer(),
-      onPreparePasteForTerminal: () => cm?.preparePasteForTerminal(),
+      onPasteAsKeystrokes: () => {
+        const nav = navigator.clipboard;
+        if (!nav?.readText) return;
+        nav.readText().then(
+          (text) => {
+            if (!text) return;
+            console.log("[kbd-paste] typing", text.length, "chars as keystrokes");
+            this.typeTextAsKeystrokes(text);
+          },
+          (err) => console.warn("[kbd-paste] clipboard read failed:", err),
+        );
+      },
       onSuppressNextPaste: () => cm?.suppressNextPaste(),
       getFocusedAppHint: () => getFocusedAppHint(),
+      isFocusedDesktop: () => {
+        const wid = focusedWid();
+        return wid ? (windows()[wid]?.isDesktop ?? false) : false;
+      },
       debug: (cat, ...args) => console.log(`[xpra-kbd:${cat}]`, ...args),
       log: (...args) => console.log("[xpra-kbd]", ...args),
       warn: (...args) => console.warn("[xpra-kbd]", ...args),
