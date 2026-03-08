@@ -278,9 +278,11 @@ export class XpraClient {
       },
       onWindowResized: (wid, width, height) => {
         this.resizeRendererCanvas(wid, width, height);
+        this.sendBufferRefresh(wid);
       },
       onWindowMoveResize: (wid, _x, _y, width, height) => {
         this.resizeRendererCanvas(wid, width, height);
+        this.sendBufferRefresh(wid);
       },
       onConfigureOverrideRedirect: (wid, _x, _y, width, height) => {
         this.resizeRendererCanvas(wid, width, height);
@@ -785,6 +787,14 @@ export class XpraClient {
     if (renderer) {
       renderer.updateCanvasGeometry(w, h);
     }
+  }
+
+  private sendBufferRefresh(wid: number): void {
+    this.send([
+      PACKET_TYPES.buffer_refresh, wid, 0, 100,
+      { "refresh-now": true, batch: { reset: true } },
+      {},
+    ] as ClientPacket);
   }
 
   // -----------------------------------------------------------------------

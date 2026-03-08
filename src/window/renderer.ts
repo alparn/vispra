@@ -36,6 +36,10 @@ export class WindowRenderer {
   private paintQueue: unknown[][] = [];
   private paintPending = 0;
   private _dirty = false;
+  private _awaitingFullFrame = false;
+  private _awaitingFullFrameTimer = 0;
+  private scrollSnapshot: HTMLCanvasElement;
+  private scrollSnapshotCtx: CanvasRenderingContext2D;
 
   constructor(options: WindowRendererOptions) {
     this.canvas = options.canvas;
@@ -67,6 +71,11 @@ export class WindowRenderer {
     this.offscreenCtx.imageSmoothingEnabled = false;
 
     this.drawCanvas = this.offscreenCanvas;
+
+    this.scrollSnapshot = document.createElement("canvas");
+    this.scrollSnapshot.width = this._width;
+    this.scrollSnapshot.height = this._height;
+    this.scrollSnapshotCtx = this.scrollSnapshot.getContext("2d")!;
   }
 
   /** Current content width. */
@@ -83,30 +92,40 @@ export class WindowRenderer {
   updateCanvasGeometry(width: number, height: number): void {
     if (width === this._width && height === this._height) return;
 
-    // 1. Create a new offscreen canvas at the new size
+    const shrinking = width < this._width || height < this._height;
+
+    this.paintQueue.length = 0;
+    this.paintPending = 0;
+
     const newOff = document.createElement("canvas");
     newOff.width = width;
     newOff.height = height;
     const newCtx = newOff.getContext("2d")!;
     newCtx.imageSmoothingEnabled = false;
 
-    // 2. Copy old offscreen content onto new (preserves pixels, no black)
-    if (this._width > 0 && this._height > 0) {
+    if (!shrinking && this._width > 0 && this._height > 0) {
       newCtx.drawImage(this.offscreenCanvas, 0, 0);
     }
 
-    // 3. Swap offscreen
     this.offscreenCanvas = newOff;
     this.offscreenCtx = newCtx;
     this.drawCanvas = newOff;
 
-    // 4. Resize visible canvas and immediately paint the preserved content
     this._width = width;
     this._height = height;
     this.canvas.width = width;
     this.canvas.height = height;
     this.canvasCtx.imageSmoothingEnabled = false;
-    this.canvasCtx.drawImage(newOff, 0, 0);
+    this.scrollSnapshot.width = width;
+    this.scrollSnapshot.height = height;
+    this.scrollSnapshotCtx = this.scrollSnapshot.getContext("2d")!;
+    this._awaitingFullFrame = true;
+    if (this._awaitingFullFrameTimer) clearTimeout(this._awaitingFullFrameTimer);
+    this._awaitingFullFrameTimer = window.setTimeout(() => {
+      this._awaitingFullFrame = false;
+      this._awaitingFullFrameTimer = 0;
+    }, 500);
+    this._dirty = true;
   }
 
   /**
@@ -145,14 +164,7 @@ export class WindowRenderer {
   draw(): void {
     if (!this._dirty) return;
     this._dirty = false;
-    if (this.hasAlpha || this.tray) {
-      this.canvasCtx.clearRect(
-        0,
-        0,
-        this.drawCanvas.width,
-        this.drawCanvas.height,
-      );
-    }
+    this.canvasCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.canvasCtx.drawImage(this.drawCanvas, 0, 0);
   }
 
@@ -218,6 +230,21 @@ export class WindowRenderer {
     let coding = s(packet[6]);
     let encWidth = width;
     let encHeight = height;
+
+    if (this._awaitingFullFrame) {
+      if (coding === "scroll") {
+        this.paintPending = 0;
+        this._dirty = true;
+        decodeCallback();
+        this.may_paint_now();
+        return;
+      }
+      this._awaitingFullFrame = false;
+      if (this._awaitingFullFrameTimer) {
+        clearTimeout(this._awaitingFullFrameTimer);
+        this._awaitingFullFrameTimer = 0;
+      }
+    }
 
     const scaledSize = options["scaled_size"] as [number, number] | undefined;
     if (scaledSize) {
@@ -331,20 +358,17 @@ export class WindowRenderer {
 
       if (coding === "scroll") {
         const scrolls = (options["scroll"] ?? imgData) as number[][];
+        this.scrollSnapshotCtx.drawImage(this.offscreenCanvas, 0, 0);
+
         for (let index = 0; index < scrolls.length; index++) {
           const scrollData = scrolls[index];
           this.debug("draw", "scroll", index, ":", scrollData);
           const [sx, sy, sw, sh, xdelta, ydelta] = scrollData;
+          if (sw <= 0 || sh <= 0) continue;
           this.offscreenCtx.drawImage(
-            this.drawCanvas,
-            sx,
-            sy,
-            sw,
-            sh,
-            sx + xdelta,
-            sy + ydelta,
-            sw,
-            sh,
+            this.scrollSnapshot,
+            sx, sy, sw, sh,
+            sx + xdelta, sy + ydelta, sw, sh,
           );
           if (this.debugCategories.includes("draw")) {
             this.paint_box("brown", sx + xdelta, sy + ydelta, sw, sh);
