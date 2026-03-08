@@ -17,6 +17,7 @@ let loginResolveCallback: ((password: string | null) => void) | null = null;
 const [_sessionInfoVisible, setSessionInfoVisible] = createSignal(false);
 const [_virtualKeyboardVisible, setVirtualKeyboardVisible] = createSignal(false);
 const [_windowPreviewVisible, setWindowPreviewVisible] = createSignal(false);
+const [_connectOverlayVisible, setConnectOverlayVisible] = createSignal(false);
 
 /** Reactive accessors for overlay visibility (use in Solid components). */
 export const loginVisible = _loginVisible;
@@ -24,6 +25,7 @@ export const loginHeading = _loginHeading;
 export const sessionInfoVisible = _sessionInfoVisible;
 export const virtualKeyboardVisible = _virtualKeyboardVisible;
 export const windowPreviewVisible = _windowPreviewVisible;
+export const connectOverlayVisible = _connectOverlayVisible;
 
 // ---------------------------------------------------------------------------
 // Actions
@@ -99,6 +101,19 @@ export function toggleWindowPreview(): boolean {
   return windowPreviewVisible();
 }
 
+export function showConnectOverlay(): void {
+  setConnectOverlayVisible(true);
+}
+
+export function hideConnectOverlay(): void {
+  setConnectOverlayVisible(false);
+}
+
+export function toggleConnectOverlay(): boolean {
+  setConnectOverlayVisible((v) => !v);
+  return connectOverlayVisible();
+}
+
 // ---------------------------------------------------------------------------
 // Store object
 // ---------------------------------------------------------------------------
@@ -119,6 +134,9 @@ export const uiStore = {
   get windowPreviewVisible() {
     return windowPreviewVisible();
   },
+  get connectOverlayVisible() {
+    return connectOverlayVisible();
+  },
   showLogin,
   hideLogin,
   toggleLogin,
@@ -131,4 +149,7 @@ export const uiStore = {
   showWindowPreview,
   hideWindowPreview,
   toggleWindowPreview,
+  showConnectOverlay,
+  hideConnectOverlay,
+  toggleConnectOverlay,
 };

@@ -101,6 +101,7 @@ export {
   sessionInfoVisible,
   virtualKeyboardVisible,
   windowPreviewVisible,
+  connectOverlayVisible,
   showLogin,
   hideLogin,
   showLoginWithPrompt,
@@ -114,6 +115,9 @@ export {
   showWindowPreview,
   hideWindowPreview,
   toggleWindowPreview,
+  showConnectOverlay,
+  hideConnectOverlay,
+  toggleConnectOverlay,
 } from "./ui";
 
 export {
