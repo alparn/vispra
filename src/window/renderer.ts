@@ -25,8 +25,6 @@ export class WindowRenderer {
   private drawCanvas: HTMLCanvasElement;
   private _width: number;
   private _height: number;
-  private readonly hasAlpha: boolean;
-  private readonly tray: boolean;
   private readonly debugCategories: readonly string[];
   private readonly useDecodeWorker: boolean;
   private readonly debug: (category: string, ...args: unknown[]) => void;
@@ -45,8 +43,8 @@ export class WindowRenderer {
     this.canvas = options.canvas;
     this._width = options.width;
     this._height = options.height;
-    this.hasAlpha = options.hasAlpha ?? false;
-    this.tray = options.tray ?? false;
+    void options.hasAlpha;
+    void options.tray;
     this.debugCategories = options.debugCategories ?? [];
     this.useDecodeWorker = options.useDecodeWorker ?? false;
     this.debug = options.debug ?? (() => {});
