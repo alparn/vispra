@@ -23,6 +23,8 @@ import { u } from "@/core/utils/encoding";
 import { isFirefox } from "@/core/utils/platform";
 import type { ClientPacket } from "@/core/protocol/types";
 
+const AUDIO_DEBUG = false;
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -131,17 +133,14 @@ export class AudioManager {
       AV?.Decoder?.find && AV?.Player?.fromXpraSource,
     );
 
-    console.log("%c[AUDIO] init", "color:#1db954;font-weight:bold",
-      "mediasource=", this.mediasourceEnabled,
-      "aurora=", this.auroraEnabled);
+    this.d("init", "mediasource=", this.mediasourceEnabled, "aurora=", this.auroraEnabled);
 
     if (this.mediasourceEnabled) {
       this.mediasourceCodecs = getMediaSourceAudioCodecs(ignoreBlacklist);
       for (const [k, v] of Object.entries(this.mediasourceCodecs)) {
         this.allCodecs[k] = v;
       }
-      console.log("%c[AUDIO] MediaSource codecs:", "color:#1db954;font-weight:bold",
-        Object.keys(this.mediasourceCodecs));
+      this.d("MediaSource codecs:", Object.keys(this.mediasourceCodecs));
     }
 
     if (this.auroraEnabled) {
@@ -151,17 +150,15 @@ export class AudioManager {
           this.allCodecs[k] = v;
         }
       }
-      console.log("%c[AUDIO] Aurora codecs:", "color:#1db954;font-weight:bold",
-        Object.keys(this.auroraCodecs));
+      this.d("Aurora codecs:", Object.keys(this.auroraCodecs));
     }
 
-    console.log("%c[AUDIO] all codecs:", "color:#1db954;font-weight:bold",
-      Object.keys(this.allCodecs));
+    this.d("all codecs:", Object.keys(this.allCodecs));
 
     if (Object.keys(this.allCodecs).length === 0) {
       this.codec = null;
       this.audioEnabled = false;
-      console.warn("[AUDIO] no valid audio codecs found");
+      this.d("no valid audio codecs found");
       return;
     }
 
@@ -175,14 +172,13 @@ export class AudioManager {
 
       if (this.framework) {
         this.audioEnabled = true;
-        console.log("%c[AUDIO] ✓ enabled", "color:#1db954;font-weight:bold",
-          "framework=", this.framework, "codec=", this.codec);
+        this.d("✓ enabled", "framework=", this.framework, "codec=", this.codec);
       } else {
-        console.warn("[AUDIO] ✗ no valid audio framework");
+        this.d("✗ no valid audio framework");
         this.audioEnabled = false;
       }
     } else {
-      console.warn("[AUDIO] ✗ no valid audio codec found");
+      this.d("✗ no valid audio codec found");
       this.audioEnabled = false;
     }
   }
@@ -213,18 +209,17 @@ export class AudioManager {
    * Negotiates codec with server and starts receiving if possible.
    */
   processServerCaps(audioCaps: Record<string, unknown>): void {
-    console.log("%c[AUDIO] processServerCaps", "color:#1db954;font-weight:bold",
-      "raw caps:", audioCaps);
+    this.d("processServerCaps", "raw caps:", audioCaps);
 
     if (!this.audioEnabled) {
-      console.warn("[AUDIO] processServerCaps: audio disabled locally, skipping");
+      this.d("processServerCaps: audio disabled locally, skipping");
       this.setAudioState("disabled", "");
       return;
     }
 
     if (!audioCaps["send"]) {
       this.audioEnabled = false;
-      console.warn("[AUDIO] server does not support speaker forwarding (send=false)");
+      this.d("server does not support speaker forwarding (send=false)");
       this.setAudioState("disabled", "server does not support speaker forwarding");
       return;
     }
@@ -232,20 +227,18 @@ export class AudioManager {
     const serverEncoders = audioCaps["encoders"] as string[] | undefined;
     if (!serverEncoders) {
       this.audioEnabled = false;
-      console.warn("[AUDIO] server has no audio encoders");
+      this.d("server has no audio encoders");
       this.setAudioState("disabled", "audio codecs missing on the server");
       return;
     }
 
-    console.log("%c[AUDIO] server encoders:", "color:#1db954;font-weight:bold", serverEncoders);
-    console.log("%c[AUDIO] client codecs:", "color:#1db954;font-weight:bold",
-      Object.keys(this.allCodecs));
-    console.log("%c[AUDIO] current codec:", "color:#1db954;font-weight:bold",
-      this.codec, "framework:", this.framework);
+    this.d("server encoders:", serverEncoders);
+    this.d("client codecs:", Object.keys(this.allCodecs));
+    this.d("current codec:", this.codec, "framework:", this.framework);
 
     if (!this.codec || !serverEncoders.includes(this.codec)) {
       if (this.codec) {
-        console.warn("[AUDIO] codec", this.codec, "not supported by server, negotiating...");
+        this.d("codec", this.codec, "not supported by server, negotiating...");
       }
       this.codec = null;
 
@@ -255,28 +248,26 @@ export class AudioManager {
             ? "mediasource"
             : "aurora";
           this.codec = preferred;
-          console.log("%c[AUDIO] ✓ negotiated codec:", "color:#1db954;font-weight:bold",
-            this.framework, this.codec);
+          this.d("✓ negotiated codec:", this.framework, this.codec);
           break;
         }
       }
 
       if (!this.codec) {
         this.audioEnabled = false;
-        console.error("[AUDIO] ✗ no matching codec between client and server!");
+        this.d("✗ no matching codec between client and server!");
         this.setAudioState("disabled", "no matching audio codec");
         return;
       }
     } else {
-      console.log("%c[AUDIO] ✓ codec already matches server:", "color:#1db954;font-weight:bold",
-        this.codec);
+      this.d("✓ codec already matches server:", this.codec);
     }
 
     if (this.audioEnabled && !isFirefox()) {
-      console.log("%c[AUDIO] → startReceiving()", "color:#1db954;font-weight:bold");
+      this.d("→ startReceiving()");
       this.startReceiving();
     } else if (isFirefox()) {
-      console.log("%c[AUDIO] Firefox detected, waiting for user gesture to start", "color:#ff9500;font-weight:bold");
+      this.d("Firefox detected, waiting for user gesture to start");
     }
   }
 
@@ -297,8 +288,7 @@ export class AudioManager {
     this.soundDataBytes += bufLen;
 
     if (this.soundDataCount <= 5 || this.soundDataCount % 50 === 0) {
-      console.log("%c[AUDIO] sound-data #%d", "color:#1db954;font-weight:bold",
-        this.soundDataCount,
+      this.d("sound-data #", this.soundDataCount,
         "codec=", codec, "bytes=", bufLen,
         "total=", this.soundDataBytes, "B",
         "opts=", options,
@@ -307,13 +297,13 @@ export class AudioManager {
 
     try {
       if (codec !== this.codec) {
-        console.error("[AUDIO] ✗ codec mismatch! got=", codec, "expected=", this.codec);
+        this.d("✗ codec mismatch! got=", codec, "expected=", this.codec);
         this.close();
         return;
       }
 
       if (options["start-of-stream"]) {
-        console.log("%c[AUDIO] ▶ START-OF-STREAM", "color:#1db954;font-weight:bold;font-size:14px");
+        this.d("▶ START-OF-STREAM");
         this.startStream();
       }
 
@@ -322,12 +312,11 @@ export class AudioManager {
       }
 
       if (options["end-of-stream"]) {
-        console.log("%c[AUDIO] ■ END-OF-STREAM", "color:#e74c3c;font-weight:bold;font-size:14px",
-          "total packets=", this.soundDataCount, "total bytes=", this.soundDataBytes);
+        this.d("■ END-OF-STREAM", "total packets=", this.soundDataCount, "total bytes=", this.soundDataBytes);
         this.close();
       }
     } catch (err) {
-      console.error("[AUDIO] ✗ sound data error:", err);
+      this.d("✗ sound data error:", err);
       this.setAudioState("error", String(err));
       this.close();
     }
@@ -415,7 +404,7 @@ export class AudioManager {
       );
       const best = getBestCodec(supported);
       if (!best) {
-        console.warn("[AUDIO] startReceiving: no codec found");
+        this.d("startReceiving: no codec found");
         return;
       }
       const parts = best.split(":");
@@ -423,8 +412,7 @@ export class AudioManager {
       this.codec = parts[1];
     }
 
-    console.log("%c[AUDIO] startReceiving", "color:#1db954;font-weight:bold",
-      "framework=", this.framework, "codec=", this.codec);
+    this.d("startReceiving", "framework=", this.framework, "codec=", this.codec);
 
     try {
       this.buffers = [];
@@ -437,7 +425,7 @@ export class AudioManager {
         this.startAurora();
       }
     } catch (err) {
-      console.error("[AUDIO] ✗ error starting audio player:", err);
+      this.d("✗ error starting audio player:", err);
     }
   }
 
@@ -741,6 +729,7 @@ export class AudioManager {
   // -----------------------------------------------------------------------
 
   private d(...args: unknown[]): void {
+    if (!AUDIO_DEBUG) return;
     console.log("%c[AUDIO]", "color:#1db954;font-weight:bold", ...args);
   }
 }

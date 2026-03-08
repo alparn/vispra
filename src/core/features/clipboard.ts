@@ -91,6 +91,7 @@ export class ClipboardManager {
   private boundCopy: (e: ClipboardEvent) => void;
   private boundCut: (e: ClipboardEvent) => void;
   private boundMaySetClipboard: () => void;
+  private _suppressNextPaste = false;
 
   constructor(options: ClipboardOptions) {
     this.options = options;
@@ -182,7 +183,12 @@ export class ClipboardManager {
   }
 
   private handlePaste(e: ClipboardEvent): void {
-    console.log("[ClipboardManager] handlePaste fired, enabled=", this._enabled, "preferredFormat=", this.options.preferredFormat);
+    console.log("[ClipboardManager] handlePaste fired, enabled=", this._enabled, "suppress=", this._suppressNextPaste);
+    if (this._suppressNextPaste) {
+      this._suppressNextPaste = false;
+      return;
+    }
+
     const clipboardData = e.clipboardData;
     if (clipboardData?.files && clipboardData.files.length > 0) {
       const files = clipboardData.files;
@@ -298,6 +304,15 @@ export class ClipboardManager {
   }
 
   /**
+   * Suppress the next native paste event handler (handlePaste).
+   * Called when preparePasteForServer already handles clipboard reading,
+   * so the native paste event shouldn't send a duplicate clipboard-token.
+   */
+  suppressNextPaste(): void {
+    this._suppressNextPaste = true;
+  }
+
+  /**
    * Proactively read and send clipboard on Ctrl+V (paste).
    * Called by keyboard controller on paste shortcut (user gesture).
    * Ensures the server receives clipboard content BEFORE key events,
@@ -306,16 +321,37 @@ export class ClipboardManager {
   preparePasteForServer(): void {
     console.log("[ClipboardManager] preparePasteForServer called, enabled=", this._enabled, "connected=", this.options.isConnected());
     if (!this._enabled || !this.options.isConnected()) return;
+    this.readAndSendClipboard(false);
+  }
+
+  /**
+   * Read clipboard and send to both CLIPBOARD and PRIMARY selections.
+   * Used for terminal paste (Shift+Insert reads PRIMARY by default in XTerm).
+   */
+  preparePasteForTerminal(): void {
+    console.log("[ClipboardManager] preparePasteForTerminal called, enabled=", this._enabled, "connected=", this.options.isConnected());
+    if (!this._enabled || !this.options.isConnected()) return;
+    this.readAndSendClipboard(true);
+  }
+
+  private readAndSendClipboard(alsoSetPrimary: boolean): void {
+    const sendText = (text: string) => {
+      this.clipboardBuffer = text;
+      const data = StringToUint8(text);
+      this.sendClipboardToken(data);
+      if (alsoSetPrimary) {
+        this.sendClipboardToken(data, undefined, "PRIMARY");
+      }
+    };
 
     const nav = navigator.clipboard;
     if (nav?.readText) {
       nav.readText().then(
         (text) => {
-          this.cdebug("preparePasteForServer (Ctrl+V), text=", truncateForLog(text));
-          this.clipboardBuffer = text;
-          this.sendClipboardToken(StringToUint8(text));
+          this.cdebug("readAndSendClipboard text=", truncateForLog(text), "primary=", alsoSetPrimary);
+          sendText(text);
         },
-        (error) => this.cdebug("preparePasteForServer failed:", error),
+        (error) => this.cdebug("readAndSendClipboard failed:", error),
       );
       return;
     }
@@ -329,19 +365,17 @@ export class ClipboardManager {
                 (blob) => {
                   const reader = new FileReader();
                   reader.addEventListener("load", () => {
-                    const text = String(reader.result ?? "");
-                    this.clipboardBuffer = text;
-                    this.sendClipboardToken(StringToUint8(text));
+                    sendText(String(reader.result ?? ""));
                   });
                   reader.readAsText(blob);
                 },
-                () => this.cdebug("preparePasteForServer getType failed"),
+                () => this.cdebug("readAndSendClipboard getType failed"),
               );
               return;
             }
           }
         },
-        () => this.cdebug("preparePasteForServer read() failed"),
+        () => this.cdebug("readAndSendClipboard read() failed"),
       );
     }
   }
@@ -447,8 +481,9 @@ export class ClipboardManager {
   // Send to server
   // -------------------------------------------------------------------------
 
-  sendClipboardToken(data: Uint8Array | string, dataFormat?: string[]): void {
-    console.log("[ClipboardManager] sendClipboardToken, enabled=", this._enabled, "connected=", this.options.isConnected(), "dataLen=", typeof data === "string" ? data.length : data.byteLength);
+  sendClipboardToken(data: Uint8Array | string, dataFormat?: string[], selection?: string): void {
+    const sel = selection ?? "CLIPBOARD";
+    console.log("[ClipboardManager] sendClipboardToken, selection=", sel, "enabled=", this._enabled, "connected=", this.options.isConnected(), "dataLen=", typeof data === "string" ? data.length : data.byteLength);
     if (!this._enabled || !this.options.isConnected()) return;
 
     const claim = true;
@@ -462,12 +497,12 @@ export class ClipboardManager {
           : [TEXT_PLAIN, UTF8_STRING];
     }
 
-    this.cdebug("sending clipboard token with data:", data, "as", actualDataFormat);
+    this.cdebug("sending clipboard token with data:", data, "as", actualDataFormat, "selection=", sel);
 
     const packet: ClientPacket = data
       ? ([
           PACKET_TYPES.clipboard_token,
-          "CLIPBOARD",
+          sel,
           actualDataFormat,
           UTF8_STRING,
           UTF8_STRING,
@@ -480,7 +515,7 @@ export class ClipboardManager {
         ] as ClientPacket)
       : ([
           PACKET_TYPES.clipboard_token,
-          "CLIPBOARD",
+          sel,
           [],
           "",
           "",

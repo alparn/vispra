@@ -629,6 +629,8 @@ export class XpraClient {
       getClipboardDelayedEventTime: () => this.clipboardDelayedEventTime,
       setClipboardDelayedEventTime: (t: number) => { this.clipboardDelayedEventTime = t; },
       onPreparePasteForServer: () => cm?.preparePasteForServer(),
+      onPreparePasteForTerminal: () => cm?.preparePasteForTerminal(),
+      onSuppressNextPaste: () => cm?.suppressNextPaste(),
       getFocusedAppHint: () => getFocusedAppHint(),
       debug: (cat, ...args) => console.log(`[xpra-kbd:${cat}]`, ...args),
       log: (...args) => console.log("[xpra-kbd]", ...args),
