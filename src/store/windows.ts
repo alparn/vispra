@@ -39,11 +39,27 @@ export interface WindowState {
   minimized?: boolean;
   maximized?: boolean;
   stackingLayer?: number;
+  /** True if this is the root desktop window (xpra start-desktop) */
+  isDesktop?: boolean;
 }
 
 const TERMINAL_CLASSES = ["xterm", "urxvt", "rxvt", "konsole", "gnome-terminal", "alacritty", "kitty", "st", "terminator", "tilix", "sakura", "terminology"];
 const BROWSER_CLASSES = ["firefox", "chromium", "google-chrome", "brave-browser", "opera", "vivaldi", "epiphany"];
 const RDP_CLASSES = ["xfreerdp", "freerdp", "rdesktop", "remmina"];
+
+export function isDesktopWindow(metadata: WindowMetadata): boolean {
+  if (metadata["desktop"]) return true;
+  if (metadata["shadow"]) return true;
+  const ci = metadata["class-instance"] as string[] | undefined;
+  if (ci) {
+    for (const c of ci) {
+      if (c === "xpra-desktop" || c === "Xpra-Desktop") return true;
+    }
+  }
+  const types = metadata["window-type"] as string[] | undefined;
+  if (types?.includes("DESKTOP")) return true;
+  return false;
+}
 
 export function detectAppHint(metadata: WindowMetadata): WindowAppHint {
   const ci = metadata["class-instance"] as string[] | undefined;
@@ -87,8 +103,7 @@ export function addWindow(
   const minimized = metadata.iconic as boolean | undefined;
   const maximized = metadata.maximized as boolean | undefined;
   const stackingLayer = metadata["stacking-layer"] as number | undefined;
-
-  console.log(`[window-store] addWindow wid=${wid} class-instance=`, classInstance, `appHint=${appHint}`);
+  const isDesktop = isDesktopWindow(metadata);
 
   const state: WindowState = {
     wid,
@@ -108,6 +123,7 @@ export function addWindow(
     minimized,
     maximized,
     stackingLayer,
+    isDesktop,
   };
 
   setWindows((prev) => ({ ...prev, [wid]: state }));
@@ -132,10 +148,7 @@ export function updateWindow(
     const mergedMeta = updates.metadata
       ? { ...win.metadata, ...updates.metadata }
       : win.metadata;
-    if (updates.metadata?.["class-instance"]) {
-      const newHint = detectAppHint(mergedMeta);
-      console.log(`[window-store] updateWindow wid=${wid} class-instance=`, mergedMeta["class-instance"], `appHint=${newHint}`);
-    }
+    const newHint = updates.metadata?.["class-instance"] ? detectAppHint(mergedMeta) : win.appHint;
     const next = { ...prev };
     next[wid] = {
       ...win,
@@ -144,7 +157,7 @@ export function updateWindow(
       title: (mergedMeta.title ?? win.title) as string | undefined,
       windowType: (mergedMeta["window-type"] ?? win.windowType) as string[] | undefined,
       classInstance: (mergedMeta["class-instance"] ?? win.classInstance) as string[] | undefined,
-      appHint: mergedMeta["class-instance"] ? detectAppHint(mergedMeta) : win.appHint,
+      appHint: newHint,
       fullscreen: (mergedMeta.fullscreen ?? win.fullscreen) as boolean | undefined,
       minimized: (mergedMeta.iconic ?? win.minimized) as boolean | undefined,
       maximized: (mergedMeta.maximized ?? win.maximized) as boolean | undefined,
@@ -236,6 +249,23 @@ export function getWindowsSortedByStacking(): WindowState[] {
   );
 }
 
+export function minimizeWindow(wid: number): void {
+  setWindows((prev) => {
+    const win = prev[wid];
+    if (!win) return prev;
+    return { ...prev, [wid]: { ...win, minimized: true } };
+  });
+  setFocusedWid((current) => (current === wid ? 0 : current));
+}
+
+export function restoreWindow(wid: number): void {
+  setWindows((prev) => {
+    const win = prev[wid];
+    if (!win) return prev;
+    return { ...prev, [wid]: { ...win, minimized: false } };
+  });
+}
+
 /** Bring window to top of stacking order. */
 export function raiseWindow(wid: number): void {
   const current = windows();
@@ -291,4 +321,6 @@ export const windowsStore = {
   getWindowCount,
   getWindowsSortedByStacking,
   raiseWindow,
+  minimizeWindow,
+  restoreWindow,
 };

@@ -11,7 +11,8 @@ import {
   focusWindow,
   raiseWindow,
   updateWindowGeometry,
-  removeWindow,
+  sendCloseWindow,
+  minimizeWindow,
   registerWindowCanvas,
   unregisterWindowCanvas,
   sendPacket,
@@ -109,10 +110,13 @@ const TerminalClipboardHint: Component = () => {
 
 export const WindowFrame: Component<WindowFrameProps> = (props) => {
   const win = (): WindowState | undefined => windows()[props.wid];
+  const [desktopLoading, setDesktopLoading] = createSignal(true);
+  const [viewportSize, setViewportSize] = createSignal({ w: window.innerWidth, h: window.innerHeight });
 
   const decorated = () => {
     const w = win();
     if (!w) return false;
+    if (w.isDesktop) return false;
     return (
       !w.overrideRedirect &&
       !w.tray &&
@@ -123,6 +127,7 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
   const resizable = () => {
     const w = win();
     if (!w) return false;
+    if (w.isDesktop) return false;
     if (w.overrideRedirect || w.tray) return false;
     const types = w.windowType ?? [];
     if (types.length === 0) return true;
@@ -153,16 +158,6 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
     const dragHandle = dec && headerEl ? headerEl : containerEl;
 
     const w = win();
-    console.log(TAG, "onMount setup", {
-      decorated: dec,
-      resizable: res,
-      hasHeaderEl: !!headerEl,
-      dragHandleIsHeader: dragHandle === headerEl,
-      dragHandleIsContainer: dragHandle === containerEl,
-      windowType: w?.windowType,
-      overrideRedirect: w?.overrideRedirect,
-      tray: w?.tray,
-    });
 
     const getRect = (): DragResizeRect => {
       const w = win();
@@ -187,6 +182,17 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
     }
     registerWindowCanvas(wid, canvasEl);
 
+    if (win()?.isDesktop) {
+      const loadTimer = setTimeout(() => setDesktopLoading(false), 3000);
+      onCleanup(() => clearTimeout(loadTimer));
+
+      const onResize = () => setViewportSize({ w: window.innerWidth, h: window.innerHeight });
+      window.addEventListener("resize", onResize);
+      onCleanup(() => window.removeEventListener("resize", onResize));
+    } else {
+      setDesktopLoading(false);
+    }
+
     const mouseWin: MouseWindow = {
       wid,
       canvas: canvasEl,
@@ -199,14 +205,12 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
     let mouseTracking = false;
 
     const onCanvasMouseDown = (e: MouseEvent) => {
-      console.log(TAG, "MOUSE DOWN button=", e.button, "clientX=", e.clientX, "clientY=", e.clientY, "target=", (e.target as HTMLElement)?.tagName);
       mouseTracking = true;
       document.addEventListener("mousemove", onDocumentMouseMove);
       document.addEventListener("mouseup", onDocumentMouseUp);
       forwardMouseEvent("down", e, mouseWin);
     };
     const onDocumentMouseUp = (e: MouseEvent) => {
-      console.log(TAG, "MOUSE UP button=", e.button, "clientX=", e.clientX, "clientY=", e.clientY);
       mouseTracking = false;
       document.removeEventListener("mousemove", onDocumentMouseMove);
       document.removeEventListener("mouseup", onDocumentMouseUp);
@@ -219,7 +223,6 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
       forwardMouseEvent("move", e, mouseWin);
     };
     const onCanvasWheel = (e: WheelEvent) => {
-      console.log(TAG, "WHEEL deltaX=", e.deltaX, "deltaY=", e.deltaY);
       forwardMouseEvent("wheel", e, mouseWin);
       e.preventDefault();
     };
@@ -295,7 +298,8 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
     });
   });
 
-  const handleHeaderClick = () => {
+  const handleHeaderClick = (e: MouseEvent) => {
+    if ((e.target as HTMLElement)?.closest?.(".windowbtn")) return;
     const w = win();
     if (w && !(w.minimized ?? false)) {
       focusWindow(props.wid);
@@ -307,19 +311,24 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
     if (props.onClose) {
       props.onClose(props.wid);
     } else {
-      removeWindow(props.wid);
+      sendCloseWindow(props.wid);
     }
   };
 
   const outer = () => {
     const w = win();
     if (!w) return { x: 0, y: 0, width: 0, height: 0 };
+    if (w.isDesktop) {
+      const vp = viewportSize();
+      return { x: 0, y: 0, width: vp.w, height: vp.h };
+    }
     return toOuterRect(w.x, w.y, w.width, w.height, decorated());
   };
 
   const zIndex = () => {
     const w = win();
     if (!w) return 0;
+    if (w.isDesktop) return 1;
     const layer = w.stackingLayer ?? 0;
     let z = 5000 + layer;
     if (w.tray) return 0;
@@ -331,6 +340,7 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
   const classes = () => {
     const w = win();
     const c = ["window-frame"];
+    if (w?.isDesktop) c.push("desktop-window");
     if (props.focused) c.push("windowinfocus");
     if (w?.overrideRedirect) c.push("override-redirect");
     if (w?.tray) c.push("tray");
@@ -339,7 +349,8 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
     return c.join(" ");
   };
 
-  const handlePointerDown = () => {
+  const handlePointerDown = (e: PointerEvent) => {
+    if ((e.target as HTMLElement)?.closest?.(".windowbtn")) return;
     focusWindow(props.wid);
     raiseWindow(props.wid);
   };
@@ -357,6 +368,7 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
         width: `${outer().width}px`,
         height: `${outer().height}px`,
         "z-index": zIndex(),
+        display: win()?.minimized ? "none" : undefined,
       }}
     >
       {decorated() && (
@@ -375,7 +387,21 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
           {resizable() && (
             <span class="windowbuttons">
               <span
+                class="windowbtn windowbtn-minimize"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  minimizeWindow(props.wid);
+                }}
+                role="button"
+                title="Minimize"
+              >
+                &#x2013;
+              </span>
+              <span
                 class="windowbtn windowbtn-close"
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleClose();
@@ -394,6 +420,12 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
           class="window-canvas"
         />
         <div ref={overlayEl} class="resize-overlay" />
+        <Show when={win()?.isDesktop && desktopLoading()}>
+          <div class="desktop-loading-overlay">
+            <div class="desktop-loading-spinner" />
+            <p class="desktop-loading-text">Loading desktop session…</p>
+          </div>
+        </Show>
       </div>
     </div>
   );

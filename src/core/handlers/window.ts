@@ -5,6 +5,7 @@
  */
 
 import { PACKET_TYPES } from "@/core/constants/packet-types";
+import { isDesktopWindow } from "@/store/windows";
 import type {
   MapWindowPacket,
   ConfigureWindowPacket,
@@ -48,13 +49,17 @@ export function handleNewWindow(packet: NewWindowPacket, ctx: HandlerContext): v
   let clientProps: Record<string, unknown> = {};
   if (clientProperties) clientProps = clientProperties as Record<string, unknown>;
 
+  const isDeskWin = isDesktopWindow(metadata);
   const desktopWidth = ctx.desktopWidth ?? 0;
   const desktopHeight = ctx.desktopHeight ?? 0;
   const windowCount = ctx.windowsStore?.getWindowCount?.() ?? 0;
 
   let posX = x;
   let posY = y;
-  if (x === 0 && y === 0 && !metadata["set-initial-position"] && !metadata["fullscreen"]) {
+  if (isDeskWin) {
+    posX = 0;
+    posY = 0;
+  } else if (x === 0 && y === 0 && !metadata["set-initial-position"] && !metadata["fullscreen"]) {
     if (windowCount === 0) {
       if (w <= desktopWidth) posX = Math.round((desktopWidth - w) / 2);
       if (h <= desktopHeight) posY = Math.round((desktopHeight - h) / 2);

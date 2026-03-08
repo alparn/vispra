@@ -173,10 +173,31 @@ export class MouseHandler {
       const pos = win.get_internal_geometry();
       if (canvas && e) {
         const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / (rect.width || 1);
-        const scaleY = canvas.height / (rect.height || 1);
-        const relX = ((e as MouseEvent).clientX - rect.left) * scaleX;
-        const relY = ((e as MouseEvent).clientY - rect.top) * scaleY;
+        const cw = canvas.width;
+        const ch = canvas.height;
+        const rw = rect.width || 1;
+        const rh = rect.height || 1;
+
+        // Account for object-fit: contain — the image may be letter/pillarboxed
+        const imgAspect = cw / ch;
+        const boxAspect = rw / rh;
+        let renderedW: number, renderedH: number, offsetX: number, offsetY: number;
+        if (imgAspect > boxAspect) {
+          renderedW = rw;
+          renderedH = rw / imgAspect;
+          offsetX = 0;
+          offsetY = (rh - renderedH) / 2;
+        } else {
+          renderedH = rh;
+          renderedW = rh * imgAspect;
+          offsetX = (rw - renderedW) / 2;
+          offsetY = 0;
+        }
+
+        const scaleX = cw / renderedW;
+        const scaleY = ch / renderedH;
+        const relX = ((e as MouseEvent).clientX - rect.left - offsetX) * scaleX;
+        const relY = ((e as MouseEvent).clientY - rect.top - offsetY) * scaleY;
         const absX = pos.x + relX;
         const absY = pos.y + relY;
         return [Math.round(absX), Math.round(absY), Math.round(relX), Math.round(relY)];
@@ -192,14 +213,12 @@ export class MouseHandler {
   on_mousedown(e: MouseEventLike, win: MouseWindow | null): boolean {
     this.mousedown_event = e;
     this.mouseup_event = null;
-    console.log("[MouseHandler] mousedown wid=", win?.wid, "button=", getMouseButton(e), "connected=", this.ctx.connected, "readonly=", this.ctx.server_readonly);
     this.do_window_mouse_click(e, win, true);
     return !win;
   }
 
   on_mouseup(e: MouseEventLike, win: MouseWindow | null): boolean {
     this.mouseup_event = e;
-    console.log("[MouseHandler] mouseup wid=", win?.wid, "button=", getMouseButton(e));
     this.do_window_mouse_click(e, win, false);
     return !win;
   }
@@ -346,7 +365,6 @@ export class MouseHandler {
     } else {
       this.buttons_pressed.delete(button);
     }
-    console.log("[MouseHandler] SEND button-action wid=", wid, "button=", button, "pressed=", pressed, "coords=", coords, "mods=", modifiers);
     this.ctx.send([
       PACKET_TYPES.button_action,
       wid,

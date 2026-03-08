@@ -41,6 +41,8 @@ export {
   getWindowCount,
   getWindowsSortedByStacking,
   raiseWindow,
+  minimizeWindow,
+  restoreWindow,
   type WindowState,
 } from "./windows";
 
@@ -145,6 +147,7 @@ export {
   registerRendererResizer,
   unregisterRendererResizer,
   focusWindow,
+  sendCloseWindow,
   registerMouseForwarder,
   unregisterMouseForwarder,
   forwardMouseEvent,

@@ -5,7 +5,7 @@
  * without a direct reference to the XpraClient instance.
  */
 
-import type { ClientPacket, FocusPacket } from "@/core/protocol/types";
+import type { ClientPacket, FocusPacket, CloseWindowPacket } from "@/core/protocol/types";
 import { PACKET_TYPES } from "@/core/constants/packet-types";
 import { focusedWid, setFocusedWindow } from "@/store/windows";
 import type { MouseWindow, MouseEventLike } from "@/core/input/mouse";
@@ -55,6 +55,14 @@ export function focusWindow(wid: number): void {
   if (focusedWid() === wid) return;
   setFocusedWindow(wid);
   sender?.([PACKET_TYPES.focus, wid, []] as FocusPacket);
+}
+
+/**
+ * Ask the server to close a window. The server responds with lost-window
+ * once the application actually closes.
+ */
+export function sendCloseWindow(wid: number): void {
+  sender?.([PACKET_TYPES.close_window, wid] as CloseWindowPacket);
 }
 
 // ---------------------------------------------------------------------------

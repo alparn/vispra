@@ -66,6 +66,9 @@ export interface ConnectOptions {
   passwords?: string[];
   encryptionKey?: string;
   container?: HTMLElement;
+  startNewSession?: string | null;
+  sharing?: boolean;
+  steal?: boolean;
 }
 
 export interface XpraClientCallbacks {
@@ -304,7 +307,34 @@ export class XpraClient {
       playBell: (percent: number, pitch: number, duration: number) => {
         this.audioManager?.playBell(percent, pitch, duration);
       },
+
+      resetCursor: () => {
+        this.setCanvasCursor("default");
+      },
+      setCursorForAllWindows: (_encoding: string, w: number, h: number, xhot: number, yhot: number, imgData: Uint8Array) => {
+        const blob = new Blob([imgData as unknown as BlobPart], { type: "image/png" });
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx2d = canvas.getContext("2d");
+          if (!ctx2d) { URL.revokeObjectURL(url); return; }
+          ctx2d.drawImage(img, 0, 0);
+          URL.revokeObjectURL(url);
+          const dataUrl = canvas.toDataURL("image/png");
+          this.setCanvasCursor(`url(${dataUrl}) ${xhot} ${yhot}, auto`);
+        };
+        img.onerror = () => URL.revokeObjectURL(url);
+        img.src = url;
+      },
     };
+  }
+
+  private setCanvasCursor(cursor: string): void {
+    const canvases = document.querySelectorAll<HTMLCanvasElement>(".window-canvas");
+    canvases.forEach((c) => { c.style.cursor = cursor; });
   }
 
   // -----------------------------------------------------------------------
