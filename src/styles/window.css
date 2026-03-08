@@ -1,0 +1,155 @@
+/*
+ * Window frame styles – Phase 6b.
+ * Replaces jQuery UI window styling.
+ */
+
+.window-frame {
+  position: absolute;
+  padding: 0;
+  touch-action: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.window-frame.override-redirect {
+  display: block;
+}
+
+.window-frame.tray {
+  position: relative;
+  float: left;
+}
+
+.window-frame.border {
+  border: 1px solid #808080;
+  border-radius: 6px 6px 3px 3px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+.window-frame .window-content {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  background: #000;
+}
+
+.window-frame .window-canvas {
+  display: block;
+  border: none;
+  border-radius: 0 0 2px 2px;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+
+.resize-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  transition: opacity 200ms ease-out;
+  z-index: 1;
+}
+
+.resize-overlay.active {
+  opacity: 1;
+  transition: opacity 50ms ease-in;
+}
+
+.windowhead {
+  height: 30px;
+  color: #000;
+  background-color: #a0a0a0;
+  border-bottom: 1px solid #c0c0c0;
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.windowhead:active {
+  cursor: grabbing;
+}
+
+.window-frame.windowinfocus .windowhead {
+  background-color: #fff;
+}
+
+.windowicon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  margin-right: 6px;
+  background: url("/icons/visulox-favicon.png") center / contain no-repeat;
+}
+
+.windowtitle {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.windowbuttons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.windowbtn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  border-radius: 2px;
+}
+
+.windowbtn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.windowbtn-close:hover {
+  background-color: #e81123;
+  color: white;
+}
+
+/* Resize handles – from drag-resize.ts */
+.drag-resize-handle {
+  cursor: n-resize;
+}
+
+.drag-resize-handle.drag-resize-n {
+  cursor: n-resize;
+}
+.drag-resize-handle.drag-resize-s {
+  cursor: s-resize;
+}
+.drag-resize-handle.drag-resize-e {
+  cursor: e-resize;
+}
+.drag-resize-handle.drag-resize-w {
+  cursor: w-resize;
+}
+.drag-resize-handle.drag-resize-ne {
+  cursor: ne-resize;
+}
+.drag-resize-handle.drag-resize-se {
+  cursor: se-resize;
+}
+.drag-resize-handle.drag-resize-sw {
+  cursor: sw-resize;
+}
+.drag-resize-handle.drag-resize-nw {
+  cursor: nw-resize;
+}

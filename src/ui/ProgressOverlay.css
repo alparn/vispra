@@ -1,0 +1,33 @@
+/* ProgressOverlay — Phase 6b-3 */
+
+.progress-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  font-family: system-ui, -apple-system, sans-serif;
+  z-index: 10;
+  text-align: center;
+  padding-top: 3em;
+}
+
+.progress-label {
+  font-size: 1.4em;
+  color: white;
+  line-height: 2em;
+  height: 2em;
+  margin: 0;
+}
+
+.progress-details {
+  font-size: 1.2em;
+  color: white;
+  line-height: 1.5em;
+  height: 1.5em;
+  margin: 0;
+}
+
+.progress-bar {
+  height: 2em;
+  width: 80%;
+  max-width: 400px;
+}

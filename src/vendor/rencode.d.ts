@@ -1,0 +1,31 @@
+declare const RENCODE: {
+  readonly DEFAULT_FLOAT_BITS: 32;
+  readonly MAX_INT_LENGTH: 64;
+  readonly CHR_LIST: 59;
+  readonly CHR_DICT: 60;
+  readonly CHR_INT: 61;
+  readonly CHR_INT1: 62;
+  readonly CHR_INT2: 63;
+  readonly CHR_INT4: 64;
+  readonly CHR_INT8: 65;
+  readonly CHR_FLOAT32: 66;
+  readonly CHR_FLOAT64: 44;
+  readonly CHR_TRUE: 67;
+  readonly CHR_FALSE: 68;
+  readonly CHR_NONE: 69;
+  readonly CHR_TERM: 127;
+  readonly INT_POS_FIXED_START: 0;
+  readonly INT_POS_FIXED_COUNT: 44;
+  readonly DICT_FIXED_START: 102;
+  readonly DICT_FIXED_COUNT: 25;
+  readonly INT_NEG_FIXED_START: 70;
+  readonly INT_NEG_FIXED_COUNT: 32;
+  readonly STR_FIXED_START: 128;
+  readonly STR_FIXED_COUNT: 64;
+  readonly LIST_FIXED_START: 192;
+  readonly LIST_FIXED_COUNT: 64;
+};
+
+declare function rencode(obj: unknown): Uint8Array;
+declare function rdecode(buf: Uint8Array): [unknown, number];
+declare function rencode_selftest(): boolean;

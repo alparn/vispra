@@ -1,0 +1,85 @@
+/* LoginOverlay — Phase 6b-3 */
+
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 20;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 20px;
+}
+
+.login-box {
+  width: 480px;
+  max-width: 90vw;
+  background: #d8d8d8;
+  border-radius: 20px;
+  padding: 20px;
+  z-index: 3;
+}
+
+.login-innerbox {
+  background: #e8e8e8;
+  border-radius: 20px;
+  text-align: center;
+  padding: 1em;
+}
+
+.login-header {
+  font-size: 1.5em;
+  display: inline-block;
+  margin: 0.5em;
+}
+
+.password-box {
+  margin: 1em 2em;
+}
+
+.password-box input {
+  font-size: 1.25em;
+  padding: 8px 12px;
+  border: 2px solid #101010;
+  border-radius: 4px;
+  width: 100%;
+  max-width: 280px;
+}
+
+.login-buttons {
+  margin: 2em;
+  display: flex;
+  gap: 1em;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.login-button {
+  padding: 10px 32px;
+  font-size: 1rem;
+  line-height: 1.33;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.login-button-connect {
+  color: #fff;
+  background-color: #5cb85c;
+}
+
+.login-button-connect:hover {
+  background-color: #449d44;
+}
+
+.login-button-cancel {
+  color: #333;
+  background-color: #e0e0e0;
+}
+
+.login-button-cancel:hover {
+  background-color: #ccc;
+}
