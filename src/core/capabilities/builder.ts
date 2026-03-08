@@ -384,11 +384,11 @@ export function makeHello(input: CapabilitiesBuilderInput): Capabilities {
 
   const keycodes = getKeycodes();
   updateCapabilities(caps, {
-    auto_refresh_delay: 250,
-    "quality": 100,
-    "min-quality": 80,
-    "speed": 70,
-    "min-speed": 30,
+    auto_refresh_delay: 150,
+    "quality": 80,
+    "min-quality": 50,
+    "speed": 90,
+    "min-speed": 70,
     "metadata.supported": [...METADATA_SUPPORTED],
     encodings: {
       "": input.supportedEncodings,

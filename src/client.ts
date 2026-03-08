@@ -763,8 +763,8 @@ export class XpraClient {
   private sendDamageSequenceAck(packet: DrawPacket, start: number): void {
     const packetSequence = packet[8];
     const wid = packet[1];
-    const width = packet[4];
-    const height = packet[5];
+    const width = packet[4] ?? 0;
+    const height = packet[5] ?? 0;
     const elapsed = Math.round(performance.now() - start);
     this.send([
       PACKET_TYPES.damage_sequence,

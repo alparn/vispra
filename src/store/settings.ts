@@ -249,7 +249,7 @@ export function getEncodingOptions(): Record<string, unknown> {
     "decoder-speed": { video: 0 },
     "color-gamut": gamut,
     video_scaling: true,
-    video_max_size: [1024, 768],
+    video_max_size: [4096, 2160],
     full_csc_modes: {
       mpeg1: ["YUV420P"],
       h264: ["YUV420P"],
@@ -271,16 +271,16 @@ export function getEncodingOptions(): Record<string, unknown> {
       vp8: ["YUV420P"],
     },
     h264: {
-      "score-delta": 80,
+      "score-delta": 100,
       YUV420P: {
         profile: "baseline",
-        level: "2.1",
+        level: "4.1",
         cabac: false,
         "deblocking-filter": false,
         "fast-decode": true,
       },
     },
-    "h264+mp4": { "score-delta": 50, YUV420P: { profile: "baseline", level: "3.0" } },
+    "h264+mp4": { "score-delta": 80, YUV420P: { profile: "baseline", level: "4.1" } },
     vp8: { "score-delta": 70 },
     "mpeg4+mp4": { "score-delta": 40 },
     "vp8+webm": { "score-delta": 40 },
