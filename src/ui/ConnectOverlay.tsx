@@ -161,166 +161,200 @@ export const ConnectOverlay: Component<ConnectOverlayProps> = (props) => {
                 Server Connection
               </span>
 
-              <div class="connect-form-grid">
-                <label for="connect-host">Host</label>
-                <input
-                  id="connect-host"
-                  ref={hostInputRef}
-                  type="text"
-                  value={host()}
-                  onInput={(e) => setHost(e.currentTarget.value)}
-                  placeholder="e.g. 192.168.1.1"
-                  required
-                />
-
-                <label for="connect-port">Port</label>
-                <input
-                  id="connect-port"
-                  type="number"
-                  value={port()}
-                  onInput={(e) => setPort(parseInt(e.currentTarget.value, 10) || 0)}
-                  min={1}
-                  max={65535}
-                  required
-                />
-
-                <label for="connect-path">Path</label>
-                <input
-                  id="connect-path"
-                  type="text"
-                  value={path()}
-                  onInput={(e) => setPath(e.currentTarget.value)}
-                  placeholder="/"
-                />
-
-                <div class="connect-checkbox-row">
-                  <label class="connect-checkbox-label">
+              {/* ---- Server section ---- */}
+              <div class="connect-section">
+                <div class="connect-section-title">Server</div>
+                <div class="connect-section-fields">
+                  <div class="connect-field">
+                    <span class="connect-field-label">Host</span>
                     <input
-                      type="checkbox"
-                      checked={ssl()}
-                      onChange={(e) => setSsl(e.currentTarget.checked)}
+                      id="connect-host"
+                      ref={hostInputRef}
+                      type="text"
+                      value={host()}
+                      onInput={(e) => setHost(e.currentTarget.value)}
+                      placeholder="e.g. 192.168.1.1"
+                      required
                     />
-                    SSL/TLS
-                  </label>
-                  <label class="connect-checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={sharing()}
-                      onChange={(e) => setSharing(e.currentTarget.checked)}
-                    />
-                    Sharing
-                  </label>
-                  <label class="connect-checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={steal()}
-                      onChange={(e) => setSteal(e.currentTarget.checked)}
-                    />
-                    Steal
-                  </label>
-                </div>
+                  </div>
 
-                <hr class="connect-divider" />
-
-                <label for="connect-username">Username</label>
-                <input
-                  id="connect-username"
-                  type="text"
-                  value={username()}
-                  onInput={(e) => setUsername(e.currentTarget.value)}
-                  placeholder="(optional)"
-                  autocomplete="username"
-                />
-
-                <label for="connect-password">Password</label>
-                <input
-                  id="connect-password"
-                  type="password"
-                  value={password()}
-                  onInput={(e) => setPassword(e.currentTarget.value)}
-                  placeholder="(optional)"
-                  autocomplete="current-password"
-                />
-
-                <label for="connect-encryption">Encryption Key</label>
-                <input
-                  id="connect-encryption"
-                  type="password"
-                  value={encryption()}
-                  onInput={(e) => setEncryption(e.currentTarget.value)}
-                  placeholder="(optional)"
-                />
-
-                <hr class="connect-divider" />
-
-                <label for="connect-session-type">Session Type</label>
-                <select
-                  id="connect-session-type"
-                  value={sessionType()}
-                  onChange={(e) => setSessionType(e.currentTarget.value as SessionType)}
-                >
-                  <option value="">Attach (existing session)</option>
-                  <option value="start">Start (Seamless)</option>
-                  <option value="start-desktop">Start Desktop</option>
-                  <option value="shadow">Shadow</option>
-                </select>
-
-                {/* Server query button */}
-                <div class="connect-server-query">
-                  <button
-                    type="button"
-                    class="connect-query-button"
-                    disabled={querying() || !host()}
-                    onClick={handleQueryServer}
-                  >
-                    {querying() ? "Querying…" : "Query Server"}
-                  </button>
-                </div>
-
-                {/* Query error */}
-                <Show when={queryError()}>
-                  <div class="connect-error">{queryError()}</div>
-                </Show>
-
-                {/* Server info result */}
-                <Show when={serverResult()}>
-                  {(result) => (
-                    <div class="connect-server-info">
-                      <Show when={result().info}>
-                        <div>
-                          <strong>Server Mode:</strong>{" "}
-                          {result().info!.mode || "(no active mode)"}
-                        </div>
-                      </Show>
-                      <Show when={sessionEntries().length > 0}>
-                        <div>
-                          <strong>Sessions:</strong>
-                          <For each={sessionEntries()}>
-                            {(s) => (
-                              <span> {s.name} ({s.display})</span>
-                            )}
-                          </For>
-                        </div>
-                      </Show>
-                      <Show when={displayEntries().length > 0}>
-                        <div>
-                          <strong>Displays:</strong>
-                          <For each={displayEntries()}>
-                            {(d) => (
-                              <span> {d.display}{d.wmname ? ` (${d.wmname})` : ""}</span>
-                            )}
-                          </For>
-                        </div>
-                      </Show>
-                      <Show when={!result().info && sessionEntries().length === 0 && displayEntries().length === 0}>
-                        <div>No information received from server.</div>
-                      </Show>
+                  <div class="connect-row-pair">
+                    <div class="connect-field">
+                      <span class="connect-field-label">Port</span>
+                      <input
+                        id="connect-port"
+                        type="number"
+                        value={port()}
+                        onInput={(e) => setPort(parseInt(e.currentTarget.value, 10) || 0)}
+                        min={1}
+                        max={65535}
+                        required
+                      />
                     </div>
-                  )}
-                </Show>
+                    <div class="connect-field">
+                      <span class="connect-field-label">Path</span>
+                      <input
+                        id="connect-path"
+                        type="text"
+                        value={path()}
+                        onInput={(e) => setPath(e.currentTarget.value)}
+                        placeholder="/"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="connect-toggles">
+                    <label class="connect-toggle">
+                      <input
+                        type="checkbox"
+                        checked={ssl()}
+                        onChange={(e) => setSsl(e.currentTarget.checked)}
+                      />
+                      <span class="connect-toggle-track">
+                        <span class="connect-toggle-knob" />
+                      </span>
+                      <span class="connect-toggle-text">SSL/TLS</span>
+                    </label>
+                    <label class="connect-toggle">
+                      <input
+                        type="checkbox"
+                        checked={sharing()}
+                        onChange={(e) => setSharing(e.currentTarget.checked)}
+                      />
+                      <span class="connect-toggle-track">
+                        <span class="connect-toggle-knob" />
+                      </span>
+                      <span class="connect-toggle-text">Sharing</span>
+                    </label>
+                    <label class="connect-toggle">
+                      <input
+                        type="checkbox"
+                        checked={steal()}
+                        onChange={(e) => setSteal(e.currentTarget.checked)}
+                      />
+                      <span class="connect-toggle-track">
+                        <span class="connect-toggle-knob" />
+                      </span>
+                      <span class="connect-toggle-text">Steal</span>
+                    </label>
+                  </div>
+                </div>
               </div>
 
-              {/* Action buttons */}
+              {/* ---- Authentication section ---- */}
+              <div class="connect-section">
+                <div class="connect-section-title">Authentication</div>
+                <div class="connect-section-fields">
+                  <div class="connect-row-pair">
+                    <div class="connect-field">
+                      <span class="connect-field-label">Username</span>
+                      <input
+                        id="connect-username"
+                        type="text"
+                        value={username()}
+                        onInput={(e) => setUsername(e.currentTarget.value)}
+                        placeholder="optional"
+                        autocomplete="username"
+                      />
+                    </div>
+                    <div class="connect-field">
+                      <span class="connect-field-label">Password</span>
+                      <input
+                        id="connect-password"
+                        type="password"
+                        value={password()}
+                        onInput={(e) => setPassword(e.currentTarget.value)}
+                        placeholder="optional"
+                        autocomplete="current-password"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="connect-field">
+                    <span class="connect-field-label">Encryption Key</span>
+                    <input
+                      id="connect-encryption"
+                      type="password"
+                      value={encryption()}
+                      onInput={(e) => setEncryption(e.currentTarget.value)}
+                      placeholder="optional"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ---- Session section ---- */}
+              <div class="connect-section">
+                <div class="connect-section-title">Session</div>
+                <div class="connect-section-fields">
+                  <div class="connect-field">
+                    <span class="connect-field-label">Session Type</span>
+                    <select
+                      id="connect-session-type"
+                      value={sessionType()}
+                      onChange={(e) => setSessionType(e.currentTarget.value as SessionType)}
+                    >
+                      <option value="">Attach (existing session)</option>
+                      <option value="start">Start (Seamless)</option>
+                      <option value="start-desktop">Start Desktop</option>
+                      <option value="shadow">Shadow</option>
+                    </select>
+                  </div>
+
+                  <div class="connect-server-query">
+                    <button
+                      type="button"
+                      class="connect-query-button"
+                      disabled={querying() || !host()}
+                      onClick={handleQueryServer}
+                    >
+                      {querying() ? "Querying…" : "Query Server"}
+                    </button>
+                  </div>
+
+                  <Show when={queryError()}>
+                    <div class="connect-error">{queryError()}</div>
+                  </Show>
+
+                  <Show when={serverResult()}>
+                    {(result) => (
+                      <div class="connect-server-info">
+                        <Show when={result().info}>
+                          <div>
+                            <strong>Server Mode:</strong>{" "}
+                            {result().info!.mode || "(no active mode)"}
+                          </div>
+                        </Show>
+                        <Show when={sessionEntries().length > 0}>
+                          <div>
+                            <strong>Sessions:</strong>
+                            <For each={sessionEntries()}>
+                              {(s) => (
+                                <span> {s.name} ({s.display})</span>
+                              )}
+                            </For>
+                          </div>
+                        </Show>
+                        <Show when={displayEntries().length > 0}>
+                          <div>
+                            <strong>Displays:</strong>
+                            <For each={displayEntries()}>
+                              {(d) => (
+                                <span> {d.display}{d.wmname ? ` (${d.wmname})` : ""}</span>
+                              )}
+                            </For>
+                          </div>
+                        </Show>
+                        <Show when={!result().info && sessionEntries().length === 0 && displayEntries().length === 0}>
+                          <div>No information received from server.</div>
+                        </Show>
+                      </div>
+                    )}
+                  </Show>
+                </div>
+              </div>
+
+              {/* ---- Action buttons ---- */}
               <div class="connect-buttons">
                 <button
                   type="button"

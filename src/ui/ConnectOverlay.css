@@ -1,192 +1,338 @@
-/* ConnectOverlay — Connection form overlay */
+/* ConnectOverlay — Modern dark glassmorphism theme */
 
 .connect-overlay {
   position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.75);
+  background: radial-gradient(ellipse at 30% 20%, rgba(56, 30, 114, 0.5) 0%, transparent 50%),
+              radial-gradient(ellipse at 70% 80%, rgba(20, 80, 120, 0.4) 0%, transparent 50%),
+              rgba(10, 10, 18, 0.92);
   z-index: 25;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding-top: 40px;
   overflow-y: auto;
+  backdrop-filter: blur(8px);
 }
 
 .connect-box {
-  width: 520px;
-  max-width: 92vw;
-  background: #d8d8d8;
+  width: 480px;
+  max-width: 94vw;
+  background: rgba(22, 22, 35, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
-  padding: 20px;
-  margin-bottom: 40px;
+  padding: 2px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6),
+              0 0 0 1px rgba(255, 255, 255, 0.04) inset;
 }
 
 .connect-innerbox {
-  background: #e8e8e8;
-  border-radius: 20px;
-  padding: 1.5em 2em;
+  background: rgba(30, 30, 48, 0.7);
+  border-radius: 18px;
+  padding: 2em 2.2em 1.8em;
+  backdrop-filter: blur(12px);
 }
 
 .connect-header {
-  font-size: 1.5em;
-  font-weight: 600;
-  display: block;
-  text-align: center;
-  margin-bottom: 1em;
-  color: #222;
-}
-
-.connect-form-grid {
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 0.6em 1em;
+  font-size: 1.4em;
+  font-weight: 700;
+  display: flex;
   align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  margin-bottom: 1.6em;
+  color: #e8e8f0;
+  letter-spacing: -0.01em;
 }
 
-.connect-form-grid label {
-  text-align: right;
-  font-size: 0.95em;
-  color: #444;
+.connect-header::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #6ee7b7;
+  box-shadow: 0 0 8px rgba(110, 231, 183, 0.5);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+/* ---------- Section groups ---------- */
+
+.connect-section {
+  margin-bottom: 1.2em;
+}
+
+.connect-section:last-of-type {
+  margin-bottom: 0.6em;
+}
+
+.connect-section-title {
+  font-size: 0.7em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(160, 160, 200, 0.6);
+  margin-bottom: 0.7em;
+  padding-left: 2px;
+}
+
+.connect-section-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55em;
+}
+
+/* ---------- Field rows ---------- */
+
+.connect-field {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.connect-field:focus-within {
+  border-color: rgba(110, 231, 183, 0.4);
+  box-shadow: 0 0 0 3px rgba(110, 231, 183, 0.08);
+}
+
+.connect-field-label {
+  min-width: 110px;
+  padding: 0 0.9em;
+  font-size: 0.82em;
   font-weight: 500;
+  color: rgba(180, 180, 210, 0.7);
+  white-space: nowrap;
+  user-select: none;
+  flex-shrink: 0;
 }
 
-.connect-form-grid input[type="text"],
-.connect-form-grid input[type="number"],
-.connect-form-grid input[type="password"],
-.connect-form-grid select {
-  font-size: 0.95em;
-  padding: 6px 10px;
-  border: 2px solid #bbb;
-  border-radius: 4px;
-  background: #fff;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.connect-form-grid input:focus,
-.connect-form-grid select:focus {
-  border-color: #5cb85c;
+.connect-field input[type="text"],
+.connect-field input[type="number"],
+.connect-field input[type="password"],
+.connect-field select {
+  flex: 1;
+  min-width: 0;
+  padding: 0.65em 0.8em;
+  font-size: 0.92em;
+  font-family: inherit;
+  color: #e0e0ec;
+  background: transparent;
+  border: none;
   outline: none;
 }
 
-.connect-checkbox-row {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 1.5em;
-  justify-content: center;
-  margin: 0.3em 0;
-  flex-wrap: wrap;
+.connect-field input::placeholder {
+  color: rgba(140, 140, 170, 0.4);
 }
 
-.connect-checkbox-label {
+.connect-field select {
+  appearance: none;
+  cursor: pointer;
+}
+
+.connect-field select option {
+  background: #1e1e30;
+  color: #e0e0ec;
+}
+
+/* Two fields side by side */
+.connect-row-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55em;
+}
+
+/* ---------- Toggle switches ---------- */
+
+.connect-toggles {
+  display: flex;
+  gap: 0.8em;
+  flex-wrap: wrap;
+  padding: 0.3em 0;
+}
+
+.connect-toggle {
   display: flex;
   align-items: center;
-  gap: 0.35em;
-  font-size: 0.9em;
-  color: #444;
+  gap: 0.45em;
   cursor: pointer;
   user-select: none;
 }
 
-.connect-checkbox-label input[type="checkbox"] {
-  accent-color: #5cb85c;
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
+.connect-toggle-track {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  transition: background 0.25s;
+  flex-shrink: 0;
 }
+
+.connect-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.connect-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: rgba(180, 180, 200, 0.6);
+  border-radius: 50%;
+  transition: transform 0.25s, background 0.25s;
+}
+
+.connect-toggle input:checked ~ .connect-toggle-knob {
+  transform: translateX(16px);
+  background: #6ee7b7;
+}
+
+.connect-toggle input:checked ~ .connect-toggle-track-bg {
+  background: rgba(110, 231, 183, 0.25);
+}
+
+.connect-toggle input:checked + .connect-toggle-track {
+  background: rgba(110, 231, 183, 0.25);
+}
+
+.connect-toggle input:checked + .connect-toggle-track .connect-toggle-knob {
+  transform: translateX(16px);
+  background: #6ee7b7;
+}
+
+.connect-toggle-text {
+  font-size: 0.82em;
+  color: rgba(180, 180, 210, 0.7);
+  font-weight: 500;
+}
+
+/* ---------- Divider ---------- */
 
 .connect-divider {
-  grid-column: 1 / -1;
   border: none;
-  border-top: 1px solid #ccc;
-  margin: 0.5em 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin: 0.2em 0;
 }
 
+/* ---------- Query server ---------- */
+
 .connect-server-query {
-  grid-column: 1 / -1;
   text-align: center;
-  margin: 0.4em 0;
+  margin: 0.3em 0 0.1em;
 }
 
 .connect-query-button {
-  padding: 6px 20px;
-  font-size: 0.9em;
-  border: 1px solid #5b9bd5;
-  border-radius: 4px;
-  background: #5b9bd5;
-  color: #fff;
+  padding: 0.5em 1.4em;
+  font-size: 0.82em;
+  font-weight: 500;
+  font-family: inherit;
+  border: 1px solid rgba(91, 155, 213, 0.3);
+  border-radius: 8px;
+  background: rgba(91, 155, 213, 0.12);
+  color: #7cb8e8;
   cursor: pointer;
   user-select: none;
+  transition: all 0.2s;
+  letter-spacing: 0.02em;
 }
 
 .connect-query-button:hover {
-  background: #4a8ac4;
+  background: rgba(91, 155, 213, 0.25);
+  border-color: rgba(91, 155, 213, 0.5);
+  color: #a0d0ff;
 }
 
 .connect-query-button:disabled {
-  opacity: 0.6;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
+/* ---------- Server info / error ---------- */
+
 .connect-server-info {
-  grid-column: 1 / -1;
-  background: #f0f0f0;
-  border-radius: 6px;
-  padding: 0.6em 1em;
-  font-size: 0.85em;
-  color: #555;
-  line-height: 1.5;
+  background: rgba(110, 231, 183, 0.06);
+  border: 1px solid rgba(110, 231, 183, 0.12);
+  border-radius: 10px;
+  padding: 0.7em 1em;
+  font-size: 0.82em;
+  color: rgba(200, 200, 220, 0.8);
+  line-height: 1.6;
+  margin-top: 0.4em;
 }
 
 .connect-server-info strong {
-  color: #333;
+  color: #b0b0d0;
 }
 
 .connect-error {
-  grid-column: 1 / -1;
-  background: #fce4e4;
-  border: 1px solid #e08080;
-  border-radius: 6px;
-  padding: 0.5em 1em;
-  font-size: 0.85em;
-  color: #a03030;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 10px;
+  padding: 0.6em 1em;
+  font-size: 0.82em;
+  color: #f87171;
   text-align: center;
+  margin-top: 0.4em;
 }
 
+/* ---------- Action buttons ---------- */
+
 .connect-buttons {
-  margin-top: 1.2em;
+  margin-top: 1.5em;
   display: flex;
-  gap: 1em;
-  justify-content: center;
-  flex-wrap: wrap;
+  gap: 0.7em;
+  justify-content: flex-end;
 }
 
 .connect-button {
-  padding: 10px 32px;
-  font-size: 1rem;
-  line-height: 1.33;
+  padding: 0.6em 1.8em;
+  font-size: 0.9em;
+  font-weight: 600;
+  font-family: inherit;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 10px;
   cursor: pointer;
   user-select: none;
+  transition: all 0.2s;
+  letter-spacing: 0.01em;
 }
 
 .connect-button-connect {
-  color: #fff;
-  background-color: #5cb85c;
+  color: #0f1a12;
+  background: linear-gradient(135deg, #6ee7b7 0%, #34d399 100%);
+  box-shadow: 0 2px 12px rgba(110, 231, 183, 0.2);
 }
 
 .connect-button-connect:hover {
-  background-color: #449d44;
+  background: linear-gradient(135deg, #86efcc 0%, #4ade8e 100%);
+  box-shadow: 0 4px 20px rgba(110, 231, 183, 0.35);
+  transform: translateY(-1px);
 }
 
 .connect-button-cancel {
-  color: #333;
-  background-color: #e0e0e0;
+  color: rgba(180, 180, 210, 0.8);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .connect-button-cancel:hover {
-  background-color: #ccc;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #e0e0ec;
 }
