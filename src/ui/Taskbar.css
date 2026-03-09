@@ -11,19 +11,24 @@
   z-index: 50000;
   display: flex;
   align-items: center;
-  gap: 4px;
   padding: 0 8px;
   background: rgba(24, 24, 28, 0.92);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.3);
-  overflow-x: auto;
-  overflow-y: hidden;
 }
 
-.taskbar:empty {
-  display: none;
+/* --- Left: window entries (scrollable) --- */
+
+.taskbar-windows {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .taskbar-entry {
@@ -74,4 +79,51 @@
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* --- Right: system tray icons --- */
+
+.taskbar-tray {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.taskbar-tray-btn {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.taskbar-tray-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.taskbar-tray-btn.active {
+  background: rgba(74, 158, 255, 0.2);
+  color: #4a9eff;
+}
+
+.taskbar-tray-btn.active:hover {
+  background: rgba(74, 158, 255, 0.3);
+  color: #5aafff;
+}
+
+.taskbar-tray-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }

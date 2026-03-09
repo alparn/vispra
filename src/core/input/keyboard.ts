@@ -168,7 +168,10 @@ export class KeyboardController {
     this.keyboardMap = {};
     this.state = "waiting";
 
+    let finalized = false;
     const finalize = () => {
+      if (finalized) return;
+      finalized = true;
       this.doInitKeyboard();
       if (this.enableAfterInit) {
         this.enableAfterInit = false;
@@ -178,14 +181,26 @@ export class KeyboardController {
       }
     };
 
+    // Safety: if getLayoutMap() hangs (Permissions-Policy blocks it silently),
+    // finalize after 2s so keyboard input is not stuck in "waiting" forever.
+    const safetyTimeout = setTimeout(() => {
+      if (!finalized) {
+        this.options.warn?.("keyboard: getLayoutMap() timed out, proceeding without layout map");
+        finalize();
+      }
+    }, 2000);
+    this.pendingTimeouts.push(safetyTimeout);
+
     if (!keyboard) {
       this.options.log?.("keyboard: navigator.keyboard not available");
+      clearTimeout(safetyTimeout);
       finalize();
       return;
     }
 
     keyboard.getLayoutMap().then(
       (keyboardLayoutMap) => {
+        clearTimeout(safetyTimeout);
         if (this.abortController.signal.aborted) return;
         this.options.log?.("keyboard: got layout map");
         for (const key of keyboardLayoutMap.keys()) {
@@ -195,6 +210,7 @@ export class KeyboardController {
         finalize();
       },
       (error) => {
+        clearTimeout(safetyTimeout);
         this.options.warn?.("keyboard: failed to get layout map:", error);
         finalize();
       }

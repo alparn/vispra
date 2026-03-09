@@ -148,7 +148,7 @@ async function autoConnectViaAPI(params: URLSearchParams): Promise<void> {
 // autoConnect — entry point: decide mode from URL parameters
 // ---------------------------------------------------------------------------
 
-type ConnectMode = "api" | "direct" | "form";
+type ConnectMode = "api" | "direct" | "same-origin" | "form";
 
 function detectMode(params: URLSearchParams): ConnectMode {
   if (params.get("mode") === "api" && params.has("host")) {
@@ -157,6 +157,17 @@ function detectMode(params: URLSearchParams): ConnectMode {
 
   if (params.has("host")) {
     return "direct";
+  }
+
+  if (params.get("mode") === "form") {
+    return "form";
+  }
+
+  // Served by xpra/Visulox itself — use the current origin to connect.
+  // The URL path (e.g. /cxpra/<uuid>/<host>/<port>/) is forwarded as the
+  // WebSocket path so the proxy can route to the correct xpra backend.
+  if (!params.has("host") && !params.has("mode")) {
+    return "same-origin";
   }
 
   return "form";
@@ -176,6 +187,32 @@ async function autoConnect(): Promise<void> {
     case "direct": {
       const options = buildOptionsFromParams(params);
       log("[autoConnect] Direct connect with options:", options);
+      createClientAndConnect(options);
+      break;
+    }
+
+    case "same-origin": {
+      const password = getParam(params, "password");
+      const token = getParam(params, "token");
+      const username = getParam(params, "username") || undefined;
+      const passwords: string[] = [];
+      if (token) passwords.push(token);
+      if (password) passwords.push(password);
+
+      const wsPath = window.location.pathname.replace(/index\.html$/, "");
+
+      const options: ConnectOptions = {
+        host: window.location.hostname,
+        port: parseInt(window.location.port || (window.location.protocol === "https:" ? "443" : "80"), 10),
+        ssl: window.location.protocol === "https:",
+        path: wsPath,
+        username,
+        passwords: passwords.length > 0 ? passwords : undefined,
+        sharing: getParamBool(params, "sharing"),
+        steal: getParamBool(params, "steal", true),
+      };
+
+      log("[autoConnect] Same-origin connect with options:", options);
       createClientAndConnect(options);
       break;
     }

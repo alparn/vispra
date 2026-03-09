@@ -27,7 +27,7 @@ export const Screen: Component = () => {
   return (
     <div id="screen" class="screen" data-testid="screen">
       <div class="screen-branding">
-        <img src="/icons/visulox-logo-128.png" alt="Visulox" class="screen-branding-logo" />
+        <img src={`${import.meta.env.BASE_URL}icons/visulox-logo-128.png`} alt="Visulox" class="screen-branding-logo" />
       </div>
       <For each={wids()}>
         {(wid) => (

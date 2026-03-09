@@ -129,6 +129,7 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
     if (!w) return false;
     if (w.isDesktop) return false;
     if (w.overrideRedirect || w.tray) return false;
+    if (w.maximized || w.fullscreen) return false;
     const types = w.windowType ?? [];
     if (types.length === 0) return true;
     return types.some((t) =>
@@ -204,22 +205,22 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
 
     let mouseTracking = false;
 
-    const onCanvasMouseDown = (e: MouseEvent) => {
+    const onCanvasPointerDown = (e: PointerEvent) => {
       mouseTracking = true;
-      document.addEventListener("mousemove", onDocumentMouseMove);
-      document.addEventListener("mouseup", onDocumentMouseUp);
+      document.addEventListener("pointermove", onDocumentPointerMove);
+      document.addEventListener("pointerup", onDocumentPointerUp);
       forwardMouseEvent("down", e, mouseWin);
     };
-    const onDocumentMouseUp = (e: MouseEvent) => {
+    const onDocumentPointerUp = (e: PointerEvent) => {
       mouseTracking = false;
-      document.removeEventListener("mousemove", onDocumentMouseMove);
-      document.removeEventListener("mouseup", onDocumentMouseUp);
+      document.removeEventListener("pointermove", onDocumentPointerMove);
+      document.removeEventListener("pointerup", onDocumentPointerUp);
       forwardMouseEvent("up", e, mouseWin);
     };
-    const onCanvasMouseMove = (e: MouseEvent) => {
+    const onCanvasPointerMove = (e: PointerEvent) => {
       if (!mouseTracking) forwardMouseEvent("move", e, mouseWin);
     };
-    const onDocumentMouseMove = (e: MouseEvent) => {
+    const onDocumentPointerMove = (e: PointerEvent) => {
       forwardMouseEvent("move", e, mouseWin);
     };
     const onCanvasWheel = (e: WheelEvent) => {
@@ -227,9 +228,26 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
       e.preventDefault();
     };
 
-    canvasEl.addEventListener("mousedown", onCanvasMouseDown);
-    canvasEl.addEventListener("mousemove", onCanvasMouseMove);
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+
+    const onGlobalPointerDown = (e: PointerEvent) => {
+      const t = e.target as HTMLElement;
+      if (t === canvasEl || canvasEl.contains(t)) return;
+      if (containerEl.contains(t) && !t.closest(".window-header") && !t.closest(".windowbtn") && !t.dataset?.resizeHandle) {
+        mouseTracking = true;
+        document.addEventListener("pointermove", onDocumentPointerMove);
+        document.addEventListener("pointerup", onDocumentPointerUp);
+        forwardMouseEvent("down", e, mouseWin);
+      }
+    };
+
+    canvasEl.addEventListener("pointerdown", onCanvasPointerDown);
+    canvasEl.addEventListener("pointermove", onCanvasPointerMove);
     canvasEl.addEventListener("wheel", onCanvasWheel, { passive: false });
+    canvasEl.addEventListener("contextmenu", onContextMenu);
+    document.addEventListener("pointerdown", onGlobalPointerDown, true);
 
     const teardown = setupDragResize(
       containerEl,
@@ -288,11 +306,13 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
 
     onCleanup(() => {
       console.log(TAG, "onCleanup — teardown");
-      canvasEl.removeEventListener("mousedown", onCanvasMouseDown);
-      canvasEl.removeEventListener("mousemove", onCanvasMouseMove);
+      canvasEl.removeEventListener("pointerdown", onCanvasPointerDown);
+      canvasEl.removeEventListener("pointermove", onCanvasPointerMove);
       canvasEl.removeEventListener("wheel", onCanvasWheel);
-      document.removeEventListener("mousemove", onDocumentMouseMove);
-      document.removeEventListener("mouseup", onDocumentMouseUp);
+      canvasEl.removeEventListener("contextmenu", onContextMenu);
+      document.removeEventListener("pointerdown", onGlobalPointerDown, true);
+      document.removeEventListener("pointermove", onDocumentPointerMove);
+      document.removeEventListener("pointerup", onDocumentPointerUp);
       unregisterWindowCanvas(wid);
       teardown();
     });

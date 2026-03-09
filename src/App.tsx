@@ -8,6 +8,7 @@ import { Notification } from "./ui/Notification";
 import { WindowPreview } from "./ui/WindowPreview";
 import { SessionInfo } from "./ui/SessionInfo";
 import { VirtualKeyboard } from "./ui/VirtualKeyboard";
+import { PerformancePanel } from "./ui/PerformancePanel";
 import {
   loginVisible,
   loginHeading,
@@ -48,6 +49,7 @@ const App: Component = () => {
       <WindowPreview />
       <SessionInfo />
       <VirtualKeyboard />
+      <PerformancePanel />
     </div>
   );
 };

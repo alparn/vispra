@@ -627,7 +627,8 @@ export type ClientPacket =
   | WindowMoveResizeOutPacket
   | UnmapWindowPacket
   | SuspendPacket
-  | ResumePacket;
+  | ResumePacket
+  | SettingChangePacket;
 
 // ---------------------------------------------------------------------------
 // Generic packet — either direction

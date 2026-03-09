@@ -18,6 +18,7 @@ const [_sessionInfoVisible, setSessionInfoVisible] = createSignal(false);
 const [_virtualKeyboardVisible, setVirtualKeyboardVisible] = createSignal(false);
 const [_windowPreviewVisible, setWindowPreviewVisible] = createSignal(false);
 const [_connectOverlayVisible, setConnectOverlayVisible] = createSignal(false);
+const [_performancePanelVisible, setPerformancePanelVisible] = createSignal(false);
 
 /** Reactive accessors for overlay visibility (use in Solid components). */
 export const loginVisible = _loginVisible;
@@ -26,6 +27,7 @@ export const sessionInfoVisible = _sessionInfoVisible;
 export const virtualKeyboardVisible = _virtualKeyboardVisible;
 export const windowPreviewVisible = _windowPreviewVisible;
 export const connectOverlayVisible = _connectOverlayVisible;
+export const performancePanelVisible = _performancePanelVisible;
 
 // ---------------------------------------------------------------------------
 // Actions
@@ -114,6 +116,19 @@ export function toggleConnectOverlay(): boolean {
   return connectOverlayVisible();
 }
 
+export function showPerformancePanel(): void {
+  setPerformancePanelVisible(true);
+}
+
+export function hidePerformancePanel(): void {
+  setPerformancePanelVisible(false);
+}
+
+export function togglePerformancePanel(): boolean {
+  setPerformancePanelVisible((v) => !v);
+  return performancePanelVisible();
+}
+
 // ---------------------------------------------------------------------------
 // Store object
 // ---------------------------------------------------------------------------
@@ -137,6 +152,9 @@ export const uiStore = {
   get connectOverlayVisible() {
     return connectOverlayVisible();
   },
+  get performancePanelVisible() {
+    return performancePanelVisible();
+  },
   showLogin,
   hideLogin,
   toggleLogin,
@@ -152,4 +170,7 @@ export const uiStore = {
   showConnectOverlay,
   hideConnectOverlay,
   toggleConnectOverlay,
+  showPerformancePanel,
+  hidePerformancePanel,
+  togglePerformancePanel,
 };

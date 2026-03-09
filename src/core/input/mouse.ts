@@ -42,6 +42,7 @@ export interface MouseEventLike
     | "target"
     | "preventDefault"
   > {
+  buttons?: number;
   wheelDelta?: number;
   wheelDeltaX?: number;
   wheelDeltaY?: number;
@@ -124,6 +125,33 @@ export class MouseHandler {
   /** Currently pressed buttons. */
   get pressedButtons(): ReadonlySet<number> {
     return this.buttons_pressed;
+  }
+
+  /**
+   * Sync buttons_pressed with actual browser MouseEvent.buttons bitmask.
+   * Sends synthetic button-release for any button we thought was pressed but isn't.
+   */
+  private syncButtonState(e: MouseEventLike, wid: number, coords: number[], modifiers: string[]): void {
+    if (e.buttons === undefined) return;
+    const browserButtons = e.buttons;
+    // Browser bitmask: 1=left(btn1), 2=right(btn3), 4=middle(btn2)
+    const browserToXpra: [number, number][] = [[1, 1], [2, 3], [4, 2]];
+    for (const [mask, xpraBtn] of browserToXpra) {
+      const browserHas = (browserButtons & mask) !== 0;
+      const weHave = this.buttons_pressed.has(xpraBtn);
+      if (weHave && !browserHas) {
+        this.buttons_pressed.delete(xpraBtn);
+        this.ctx.send([
+          PACKET_TYPES.button_action,
+          wid,
+          xpraBtn,
+          false,
+          coords,
+          modifiers,
+          [],
+        ]);
+      }
+    }
   }
 
   /**
@@ -244,6 +272,7 @@ export class MouseHandler {
       wid = win.wid;
       e.preventDefault?.();
     }
+    this.syncButtonState(e, wid, coords, modifiers);
     this.ctx.send([
       PACKET_TYPES.pointer_position,
       wid,

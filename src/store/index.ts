@@ -118,6 +118,10 @@ export {
   showConnectOverlay,
   hideConnectOverlay,
   toggleConnectOverlay,
+  performancePanelVisible,
+  showPerformancePanel,
+  hidePerformancePanel,
+  togglePerformancePanel,
 } from "./ui";
 
 export {
@@ -142,6 +146,15 @@ export {
   unregisterWindowCanvas,
   getWindowCanvas,
 } from "./window-canvases";
+
+export {
+  performanceStore,
+  perfSettings,
+  updatePerfSettings,
+  resetPerfSettings,
+  PERF_DEFAULTS,
+  type PerformanceSettings,
+} from "./performance";
 
 export {
   sendPacket,

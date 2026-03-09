@@ -20,6 +20,7 @@ import { log, warn, error as logError, debug as logDebug } from "@/core/utils/lo
 import { packetHandlers } from "@/core/handlers";
 import type { HandlerContext } from "@/core/handlers/types";
 import { makeHello, type CapabilitiesBuilderInput, type EncodingOptions } from "@/core/capabilities/builder";
+import { getDPI, getScreenSizes, getMonitors } from "@/core/capabilities/display";
 import { connectionStore, setConnecting, setDisconnected } from "@/store/connection";
 import { windowsStore } from "@/store/windows";
 import { settingsStore } from "@/store/settings";
@@ -34,6 +35,7 @@ import {
   unregisterRendererResizer,
 } from "@/store/client-bridge";
 import { KeyboardController } from "@/core/input/keyboard";
+import { parse_modifiers, parse_server_modifiers } from "@/core/keycodes/modifiers";
 import { MouseHandler, type MouseWindow, type MouseEventLike } from "@/core/input/mouse";
 import { ClipboardManager, UTF8_STRING } from "@/core/features/clipboard";
 import { AudioManager } from "@/core/features/audio";
@@ -108,6 +110,8 @@ export class XpraClient {
   private mouseHandler: MouseHandler | null = null;
   private audioManager: AudioManager | null = null;
   private serverPreciseWheel = false;
+  private resizeHandler: (() => void) | null = null;
+  private resizeDebounceTimer = 0;
 
   constructor(callbacks: XpraClientCallbacks = {}) {
     this.callbacks = callbacks;
@@ -151,6 +155,7 @@ export class XpraClient {
   }
 
   disconnect(reason?: string): void {
+    this.stopResizeListener();
     unregisterPacketSender();
     unregisterRendererResizer();
     unregisterMouseForwarder();
@@ -395,7 +400,14 @@ export class XpraClient {
     this.processAudioCaps(hello);
     this.initClipboard();
     this.initMouse(Boolean(hello["readonly"]), Boolean(hello["shadow"]), Boolean(hello["desktop"]));
+
+    parse_modifiers(hello["modifier_keycodes"] as Parameters<typeof parse_modifiers>[0]);
+    parse_server_modifiers(hello["modifiers-keynames"] as Parameters<typeof parse_server_modifiers>[0]);
+
     this.initKeyboard(Boolean(hello["readonly"]));
+    this.sendKeymap();
+    this.sendConfigureDisplay();
+    this.startResizeListener();
   }
 
   private async onChallenge(packet: unknown): Promise<void> {
@@ -472,6 +484,48 @@ export class XpraClient {
       encryptionKey: this.options.encryptionKey,
     };
     return makeHello(input);
+  }
+
+  // -----------------------------------------------------------------------
+  // Display configuration
+  // -----------------------------------------------------------------------
+
+  private sendConfigureDisplay(): void {
+    const w = this.container?.clientWidth || window.innerWidth || 1024;
+    const h = this.container?.clientHeight || window.innerHeight || 768;
+    const dpi = getDPI();
+    const vrefresh = settingsStore.settings.vrefresh;
+    const packet = [PACKET_TYPES.configure_display, {
+      "desktop-size": [w, h],
+      "monitors": Object.fromEntries(getMonitors(w, h, dpi, vrefresh)),
+      "dpi": { x: dpi, y: dpi },
+      "vrefresh": vrefresh,
+      "screen-sizes": getScreenSizes(w, h, dpi),
+    }];
+    this.send(packet as ClientPacket);
+    connectionStore.setSessionInfo(connectionStore.sessionName, w, h);
+  }
+
+  private startResizeListener(): void {
+    this.stopResizeListener();
+    this.resizeHandler = () => {
+      window.clearTimeout(this.resizeDebounceTimer);
+      this.resizeDebounceTimer = window.setTimeout(() => {
+        if (connectionStore.isConnected()) {
+          this.sendConfigureDisplay();
+        }
+      }, 250);
+    };
+    window.addEventListener("resize", this.resizeHandler);
+  }
+
+  private stopResizeListener(): void {
+    if (this.resizeHandler) {
+      window.removeEventListener("resize", this.resizeHandler);
+      this.resizeHandler = null;
+    }
+    window.clearTimeout(this.resizeDebounceTimer);
+    this.resizeDebounceTimer = 0;
   }
 
   // -----------------------------------------------------------------------
@@ -650,7 +704,7 @@ export class XpraClient {
     console.log("[xpra-kbd] clipboardEnabled=", clipEnabled);
     this.keyboardController = new KeyboardController({
       send: (packet) => {
-        console.log("[xpra-kbd] sending key-action:", packet[2], packet[3] ? "DOWN" : "UP", "wid=", packet[1]);
+        console.log("[xpra-kbd] sending key-action:", JSON.stringify(packet.slice(1)));
         this.send(packet as ClientPacket);
       },
       getFocusedWid: () => {
@@ -690,6 +744,15 @@ export class XpraClient {
     this.keyboardController.init();
     this.keyboardController.enable();
     console.log("[xpra-kbd] KeyboardController initialized, state:", this.keyboardController.getState());
+  }
+
+  private sendKeymap(): void {
+    if (!this.keyboardController) return;
+    const layout = this.keyboardController.getKeyboardLayout();
+    const keycodes = this.keyboardController.getKeycodes();
+    const keymap = { layout, keycodes };
+    console.log("[xpra-kbd] sending keymap-changed, layout=", layout, "keycodes count=", keycodes.length);
+    this.send([PACKET_TYPES.keymap_changed, { keymap }, false] as unknown as ClientPacket);
   }
 
   private initDecodeWorker(): void {

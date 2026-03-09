@@ -10,3 +10,6 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 Visulox_LOGO-E5-5000-Pixel.png
+deploy.sh
+dist.zip
+PERFORMANCE-PANEL.md

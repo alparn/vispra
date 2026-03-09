@@ -17,6 +17,13 @@ import type { WindowMetadata } from "@/core/protocol/types";
 
 export type WindowAppHint = "terminal" | "browser" | "rdp" | "unknown";
 
+export interface SavedGeometry {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface WindowState {
   wid: number;
   x: number;
@@ -41,6 +48,8 @@ export interface WindowState {
   stackingLayer?: number;
   /** True if this is the root desktop window (xpra start-desktop) */
   isDesktop?: boolean;
+  /** Saved geometry for restore after maximize/fullscreen */
+  savedGeometry?: SavedGeometry;
 }
 
 const TERMINAL_CLASSES = ["xterm", "urxvt", "rxvt", "konsole", "gnome-terminal", "alacritty", "kitty", "st", "terminator", "tilix", "sakura", "terminology"];
@@ -249,6 +258,110 @@ export function getWindowsSortedByStacking(): WindowState[] {
   );
 }
 
+const TASKBAR_HEIGHT = 36;
+
+/**
+ * Clamp window position so at least 80px remain visible on screen.
+ * Returns adjusted { x, y } (width/height are not changed).
+ */
+export function ensureVisible(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): { x: number; y: number } {
+  const desktopW = window.innerWidth;
+  const desktopH = window.innerHeight;
+  const minVisible = Math.min(80, w, h);
+
+  let nx = x;
+  let ny = y;
+
+  if (nx + w <= minVisible) {
+    nx = minVisible - w;
+  } else if (nx >= desktopW - minVisible) {
+    nx = desktopW - minVisible;
+  }
+
+  if (ny < 0) {
+    ny = 0;
+  } else if (ny >= desktopH - minVisible) {
+    ny = desktopH - minVisible;
+  }
+
+  return { x: nx, y: ny };
+}
+
+export function setMaximized(wid: number, maximized: boolean): void {
+  setWindows((prev) => {
+    const win = prev[wid];
+    if (!win) return prev;
+    if (win.maximized === maximized) return prev;
+
+    const next = { ...prev };
+    if (maximized) {
+      const desktopW = window.innerWidth;
+      const desktopH = window.innerHeight - TASKBAR_HEIGHT;
+      next[wid] = {
+        ...win,
+        maximized: true,
+        savedGeometry: win.savedGeometry ?? { x: win.x, y: win.y, width: win.width, height: win.height },
+        x: 0,
+        y: 0,
+        width: desktopW,
+        height: desktopH,
+      };
+    } else {
+      const saved = win.savedGeometry;
+      next[wid] = {
+        ...win,
+        maximized: false,
+        x: saved?.x ?? win.x,
+        y: saved?.y ?? win.y,
+        width: saved?.width ?? win.width,
+        height: saved?.height ?? win.height,
+        savedGeometry: undefined,
+      };
+    }
+    return next;
+  });
+}
+
+export function setFullscreen(wid: number, fullscreen: boolean): void {
+  setWindows((prev) => {
+    const win = prev[wid];
+    if (!win) return prev;
+    if (win.fullscreen === fullscreen) return prev;
+
+    const next = { ...prev };
+    if (fullscreen) {
+      const desktopW = window.innerWidth;
+      const desktopH = window.innerHeight;
+      next[wid] = {
+        ...win,
+        fullscreen: true,
+        savedGeometry: win.savedGeometry ?? { x: win.x, y: win.y, width: win.width, height: win.height },
+        x: 0,
+        y: 0,
+        width: desktopW,
+        height: desktopH,
+      };
+    } else {
+      const saved = win.savedGeometry;
+      next[wid] = {
+        ...win,
+        fullscreen: false,
+        x: saved?.x ?? win.x,
+        y: saved?.y ?? win.y,
+        width: saved?.width ?? win.width,
+        height: saved?.height ?? win.height,
+        savedGeometry: undefined,
+      };
+    }
+    return next;
+  });
+}
+
 export function minimizeWindow(wid: number): void {
   setWindows((prev) => {
     const win = prev[wid];
@@ -323,4 +436,6 @@ export const windowsStore = {
   raiseWindow,
   minimizeWindow,
   restoreWindow,
+  setMaximized,
+  setFullscreen,
 };
