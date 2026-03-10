@@ -33,7 +33,7 @@ function createClientAndConnect(options: ConnectOptions): void {
       console.log("[xpra] Disconnected:", reason);
       if (isSameOriginMode()) {
         const url = getSessionEndUrl();
-        log("[xpra] Session ended — navigating to:", url);
+        log("[xpra] Same-origin mode — navigating to:", url);
         window.location.href = url;
       }
     },
