@@ -14,10 +14,29 @@ render(() => <App />, root);
 // Connection logic
 // ---------------------------------------------------------------------------
 
+function isSameOriginMode(): boolean {
+  return window.location.pathname.includes("/cxpra/");
+}
+
+function getSessionEndUrl(): string {
+  let path = window.location.pathname;
+  if (!path.endsWith("connect.html")) {
+    path = path.replace(/\/$/, "") + "/connect.html";
+  }
+  return window.location.origin + path;
+}
+
 function createClientAndConnect(options: ConnectOptions): void {
   const client = new XpraClient({
     onConnect: () => console.log("[xpra] Connected!"),
-    onDisconnect: (r) => console.log("[xpra] Disconnected:", r),
+    onDisconnect: (reason) => {
+      console.log("[xpra] Disconnected:", reason);
+      if (isSameOriginMode()) {
+        const url = getSessionEndUrl();
+        log("[xpra] Session ended — navigating to:", url);
+        window.location.href = url;
+      }
+    },
     onNewWindow: (wid, _x, _y, w, h, meta) =>
       console.log(`[xpra] New window wid=${wid} ${w}x${h}`, meta),
     onLostWindow: (wid) => console.log(`[xpra] Lost window wid=${wid}`),
