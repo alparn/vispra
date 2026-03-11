@@ -53,6 +53,10 @@ export interface KeyboardControllerOptions {
   onPasteAsKeystrokes?: () => void;
   /** Suppress the next native paste event (when we already handle clipboard) */
   onSuppressNextPaste?: () => void;
+  /** Send clipboard-token then Shift+Insert (async, waits for clipboard read) */
+  onPreparePasteForTerminal?: () => void;
+  /** Send Shift+Insert to trigger paste from X11 CLIPBOARD in xterm */
+  sendShiftInsert?: () => void;
   /** Returns the app hint of the currently focused window */
   getFocusedAppHint?: () => string;
   /** Whether the focused window is a desktop/shadow root window */
@@ -406,14 +410,18 @@ export class KeyboardController {
             this.options.onSuppressNextPaste?.();
             this.options.onPasteAsKeystrokes?.();
             console.log("[kbd-clipboard] terminal/desktop paste: Cmd+Shift+V → keystrokes");
-          } else if (appHint !== "terminal") {
+          } else if (appHint === "terminal") {
+            terminalPaste = true;
+            this.options.onSuppressNextPaste?.();
+            this.options.onPreparePasteForTerminal?.();
+            console.log("[kbd-clipboard] terminal paste: Cmd+V → clipboard-token + Shift+Insert to xterm");
+          } else {
             allowDefault = true;
             this.options.setClipboardDelayedEventTime(performance.now() + CLIPBOARD_EVENT_DELAY);
             this.options.onSuppressNextPaste?.();
             this.options.onPreparePasteForServer?.();
             console.log("[kbd-clipboard] standard paste for", appHint);
           }
-          // terminal + Cmd+V without Shift → do nothing (let it pass through as-is)
         }
       }
     } else {

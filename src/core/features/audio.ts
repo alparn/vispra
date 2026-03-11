@@ -687,8 +687,30 @@ export class AudioManager {
           this.d("stream playing");
         },
         (err) => {
-          this.setAudioState("error", `stream failed: ${err}`);
-          this.close();
+          if (String(err).includes("user didn't interact") || String(err).includes("NotAllowedError")) {
+            this.d("autoplay blocked, waiting for user gesture to resume");
+            this.setAudioState("waiting", "autoplay blocked — click page to enable audio");
+            const resume = () => {
+              document.removeEventListener("click", resume, true);
+              document.removeEventListener("keydown", resume, true);
+              this.audioElement?.play().then(
+                () => {
+                  this.d("stream resumed after user gesture");
+                  this.setAudioState("playing", "");
+                },
+                (e) => {
+                  this.d("resume failed:", e);
+                  this.setAudioState("error", `resume failed: ${e}`);
+                  this.close();
+                },
+              );
+            };
+            document.addEventListener("click", resume, true);
+            document.addEventListener("keydown", resume, true);
+          } else {
+            this.setAudioState("error", `stream failed: ${err}`);
+            this.close();
+          }
         },
       );
     } else if (this.framework === "http-stream") {

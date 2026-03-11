@@ -405,7 +405,7 @@ export type KeyActionPacket = [
   number,     // keyval
   string,     // key_str
   number,     // keycode
-  string,     // group
+  number,     // group (u8 on server side)
 ];
 
 export type ButtonActionPacket = [

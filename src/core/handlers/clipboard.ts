@@ -21,7 +21,6 @@ export function handleClipboardToken(
   packet: ClipboardTokenPacket,
   ctx: HandlerContext,
 ): void {
-  console.log("[clipboard-handler] clipboard-token received, selection=", packet[1], "hasManager=", !!ctx.clipboardManager);
   const clipboard = ctx.clipboardManager;
   if (clipboard) {
     clipboard.processClipboardToken(packet);
@@ -32,7 +31,6 @@ export function handleSetClipboardEnabled(
   packet: SetClipboardEnabledPacket,
   ctx: HandlerContext,
 ): void {
-  console.log("[clipboard-handler] set-clipboard-enabled received, enabled=", packet[1], "reason=", packet[2]);
   const clipboard = ctx.clipboardManager;
   if (clipboard) {
     clipboard.processSetClipboardEnabled(packet);
@@ -43,7 +41,6 @@ export function handleClipboardRequest(
   packet: ClipboardRequestPacket,
   ctx: HandlerContext,
 ): void {
-  console.log("[clipboard-handler] clipboard-request received, requestId=", packet[1], "selection=", packet[2], "hasManager=", !!ctx.clipboardManager);
   const clipboard = ctx.clipboardManager;
   if (clipboard) {
     clipboard.processClipboardRequest(packet);

@@ -183,7 +183,6 @@ export class ClipboardManager {
   }
 
   private handlePaste(e: ClipboardEvent): void {
-    console.log("[ClipboardManager] handlePaste fired, enabled=", this._enabled, "suppress=", this._suppressNextPaste);
     if (this._suppressNextPaste) {
       this._suppressNextPaste = false;
       return;
@@ -208,12 +207,13 @@ export class ClipboardManager {
     ) {
       navigator.clipboard.readText().then(
         (text) => {
-          this.cdebug("paste event, text=", text);
           this.clipboardBuffer = text;
           const data = StringToUint8(text);
           this.sendClipboardToken(data);
         },
-        (error) => this.cdebug("paste event failed:", error),
+        (error) => {
+          this.cdebug("paste event failed:", error);
+        },
       );
       return;
     }
@@ -319,7 +319,6 @@ export class ClipboardManager {
    * which is critical for xterm and other applications.
    */
   preparePasteForServer(): void {
-    console.log("[ClipboardManager] preparePasteForServer called, enabled=", this._enabled, "connected=", this.options.isConnected());
     if (!this._enabled || !this.options.isConnected()) return;
     this.readAndSendClipboard(false);
   }
@@ -329,7 +328,6 @@ export class ClipboardManager {
    * Used for terminal paste (Shift+Insert reads PRIMARY by default in XTerm).
    */
   preparePasteForTerminal(): void {
-    console.log("[ClipboardManager] preparePasteForTerminal called, enabled=", this._enabled, "connected=", this.options.isConnected());
     if (!this._enabled || !this.options.isConnected()) return;
     this.readAndSendClipboard(true);
   }
@@ -347,11 +345,8 @@ export class ClipboardManager {
     const nav = navigator.clipboard;
     if (nav?.readText) {
       nav.readText().then(
-        (text) => {
-          this.cdebug("readAndSendClipboard text=", truncateForLog(text), "primary=", alsoSetPrimary);
-          sendText(text);
-        },
-        (error) => this.cdebug("readAndSendClipboard failed:", error),
+        (text) => sendText(text),
+        (error) => this.cdebug("readAndSendClipboard readText() failed:", error),
       );
       return;
     }
@@ -369,13 +364,13 @@ export class ClipboardManager {
                   });
                   reader.readAsText(blob);
                 },
-                () => this.cdebug("readAndSendClipboard getType failed"),
+                (err) => this.cdebug("readAndSendClipboard getType failed:", err),
               );
               return;
             }
           }
         },
-        () => this.cdebug("readAndSendClipboard read() failed"),
+        (err) => this.cdebug("readAndSendClipboard read() failed:", err),
       );
     }
   }
@@ -483,7 +478,6 @@ export class ClipboardManager {
 
   sendClipboardToken(data: Uint8Array | string, dataFormat?: string[], selection?: string): void {
     const sel = selection ?? "CLIPBOARD";
-    console.log("[ClipboardManager] sendClipboardToken, selection=", sel, "enabled=", this._enabled, "connected=", this.options.isConnected(), "dataLen=", typeof data === "string" ? data.length : data.byteLength);
     if (!this._enabled || !this.options.isConnected()) return;
 
     const claim = true;
@@ -617,14 +611,12 @@ export class ClipboardManager {
     if (!this._enabled) return;
 
     const selection = packet[1];
-    let targets: string[] = [];
     let target: string | null = null;
     let dtype: string | null = null;
     let dformat: number | null = null;
     let wireEncoding: string | null = null;
     let wireData: Uint8Array | string | null = null;
 
-    if (packet.length >= 3) targets = packet[2] as string[];
     if (packet.length >= 8) {
       target = packet[3] as string | null;
       dtype = packet[4] as string | null;
@@ -642,9 +634,6 @@ export class ClipboardManager {
 
     const isValidTarget =
       target != null && this.options.targets.includes(target);
-    this.cdebug("clipboard token received");
-    this.cdebug("targets=", targets, "target=", target, "is valid:", isValidTarget);
-    this.cdebug("dtype=", dtype, "dformat=", dformat, "wire-encoding=", wireEncoding);
 
     if (!isValidTarget) return;
 
@@ -656,23 +645,20 @@ export class ClipboardManager {
       try {
         const str =
           wireData instanceof Uint8Array ? Uint8ToString(wireData) : wireData ?? "";
-        console.log("[ClipboardManager] processClipboardToken TEXT str=", str.substring(0, 80), "changed=", this.clipboardBuffer !== str);
-        if (this.clipboardBuffer !== str) {
+        const changed = this.clipboardBuffer !== str;
+        if (changed) {
           this.clipboardDatatype = dtype;
           this.clipboardBuffer = str;
           this.clipboardPending = true;
           if (navigator.clipboard?.writeText) {
             navigator.clipboard.writeText(str).then(
-              () => {
-                console.log("[ClipboardManager] writeText succeeded, text=", str.substring(0, 40));
-                this.clipboardPending = false;
-              },
-              (err) => console.warn("[ClipboardManager] writeText FAILED:", err),
+              () => { this.clipboardPending = false; },
+              (err) => this.cdebug("writeText to browser clipboard failed:", err),
             );
           }
         }
-      } catch {
-        // ignore
+      } catch (e) {
+        this.cdebug("processClipboardToken TEXT exception:", e);
       }
       return;
     }
@@ -717,7 +703,6 @@ export class ClipboardManager {
   processClipboardRequest(packet: ClipboardRequestPacket): void {
     const requestId = packet[1];
     const selection = packet[2];
-    this.cdebug(selection, "request");
 
     if (selection !== "CLIPBOARD") {
       this.sendClipboardString(requestId, selection, "");
@@ -726,7 +711,6 @@ export class ClipboardManager {
 
     if (navigator.clipboard) {
       if (Object.hasOwn(navigator.clipboard, "read")) {
-        this.cdebug("request using read()");
         navigator.clipboard.read().then(
           (data) => {
             this.cdebug("request via read() data=", data);

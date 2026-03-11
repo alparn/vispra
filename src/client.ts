@@ -191,9 +191,6 @@ export class XpraClient {
   }
 
   send(packet: ClientPacket): void {
-    if (typeof packet[0] === "string" && (packet[0] as string).includes("clipboard")) {
-      console.log("[xpra-send] outgoing clipboard packet:", packet[0], "data-preview=", packet.length > 2 ? String(packet[1]).substring(0, 30) : "");
-    }
     this.transport?.send(packet);
   }
 
@@ -203,9 +200,6 @@ export class XpraClient {
 
   private routePacket(packet: ServerPacket): void {
     const type = packet[0];
-    if (typeof type === "string" && type.includes("clipboard")) {
-      console.log("[xpra-route] clipboard packet:", type, "length=", packet.length);
-    }
     const handler = packetHandlers[type];
     if (handler) {
       try {
@@ -632,7 +626,7 @@ export class XpraClient {
       set_focus: (win: MouseWindow) => {
         import("@/store/client-bridge").then(({ focusWindow: fw }) => fw(win.wid));
       },
-      debug: (cat: string, ...args: unknown[]) => console.log(`[xpra-mouse:${cat}]`, ...args),
+      debug: () => {},
     };
 
     const handler = new MouseHandler(ctx);
@@ -657,17 +651,38 @@ export class XpraClient {
     console.log("[xpra-mouse] MouseHandler initialized");
   }
 
+  private charToDomKeyCode(ch: string): number {
+    if (ch >= "a" && ch <= "z") return ch.toUpperCase().charCodeAt(0);
+    if (ch >= "A" && ch <= "Z") return ch.charCodeAt(0);
+    if (ch >= "0" && ch <= "9") return ch.charCodeAt(0);
+    if (ch === "\n" || ch === "\r") return 13;
+    if (ch === "\t") return 9;
+    if (ch === " ") return 32;
+    if (ch === ";") return 186;
+    if (ch === "=") return 187;
+    if (ch === ",") return 188;
+    if (ch === "-") return 189;
+    if (ch === ".") return 190;
+    if (ch === "/") return 191;
+    if (ch === "`") return 192;
+    if (ch === "[") return 219;
+    if (ch === "\\") return 220;
+    if (ch === "]") return 221;
+    if (ch === "'") return 222;
+    return ch.charCodeAt(0);
+  }
+
   private typeTextAsKeystrokes(text: string): void {
     const wid = focusedWid();
     if (!wid || !text) return;
-    console.log("[xpra-paste] typing", text.length, "chars as keystrokes into wid=", wid);
     const modifiers: string[] = [];
-    for (const ch of text) {
-      const keyval = ch.charCodeAt(0);
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      const keycode = this.charToDomKeyCode(ch);
       const keyname = ch === "\n" ? "Return" : ch === "\t" ? "Tab" : ch;
-      const keystring = ch === "\n" ? "Return" : ch === "\t" ? "Tab" : ch;
-      this.send([PACKET_TYPES.key_action, wid, keyname, true, modifiers, keyval, keystring, 0, ""] as ClientPacket);
-      this.send([PACKET_TYPES.key_action, wid, keyname, false, modifiers, keyval, keystring, 0, ""] as ClientPacket);
+      const keystring = keyname;
+      this.send([PACKET_TYPES.key_action, wid, keyname, true, modifiers, keycode, keystring, keycode, 0] as ClientPacket);
+      this.send([PACKET_TYPES.key_action, wid, keyname, false, modifiers, keycode, keystring, keycode, 0] as ClientPacket);
     }
   }
 
@@ -690,7 +705,6 @@ export class XpraClient {
       log: (...args) => console.log("[xpra-clip]", ...args),
     });
     this.clipboardManager.init();
-    console.log("[xpra-clip] ClipboardManager initialized, enabled:", s.clipboardEnabled);
   }
 
   private clipboardDelayedEventTime = 0;
@@ -719,6 +733,18 @@ export class XpraClient {
       getClipboardDelayedEventTime: () => this.clipboardDelayedEventTime,
       setClipboardDelayedEventTime: (t: number) => { this.clipboardDelayedEventTime = t; },
       onPreparePasteForServer: () => cm?.preparePasteForServer(),
+      onPreparePasteForTerminal: () => {
+        if (!cm || !cm.enabled) return;
+        const nav = navigator.clipboard;
+        if (!nav?.readText) return;
+        nav.readText().then(
+          (text) => {
+            if (!text) return;
+            this.typeTextAsKeystrokes(text);
+          },
+          (err) => console.warn("[xpra-clip] onPreparePasteForTerminal: clipboard read failed:", err),
+        );
+      },
       onPasteAsKeystrokes: () => {
         const nav = navigator.clipboard;
         if (!nav?.readText) return;
@@ -732,6 +758,13 @@ export class XpraClient {
         );
       },
       onSuppressNextPaste: () => cm?.suppressNextPaste(),
+      sendShiftInsert: () => {
+        const wid = focusedWid();
+        if (!wid) return;
+        const modifiers = ["shift"];
+              this.send([PACKET_TYPES.key_action, wid, "Insert", true, modifiers, 65379, "Insert", 0, 0] as ClientPacket);
+              this.send([PACKET_TYPES.key_action, wid, "Insert", false, modifiers, 65379, "Insert", 0, 0] as ClientPacket);
+      },
       getFocusedAppHint: () => getFocusedAppHint(),
       isFocusedDesktop: () => {
         const wid = focusedWid();
