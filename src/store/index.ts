@@ -153,7 +153,12 @@ export {
   updatePerfSettings,
   resetPerfSettings,
   PERF_DEFAULTS,
+  PERF_PRESETS,
+  matchPreset,
+  getPreset,
   type PerformanceSettings,
+  type PresetId,
+  type PerfPreset,
 } from "./performance";
 
 export {

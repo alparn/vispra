@@ -91,6 +91,165 @@
   margin-bottom: 10px;
 }
 
+/* ---- Section subtitle ---- */
+
+.perf-section-subtitle {
+  font-size: 13px;
+  color: #999;
+  margin: 0 0 12px;
+}
+
+/* ---- Preset Cards ---- */
+
+.perf-preset-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.perf-preset-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #c0c0c4;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.perf-preset-card:hover {
+  border-color: rgba(74, 158, 255, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.perf-preset-card--active {
+  border-color: #4a9eff;
+  background: rgba(74, 158, 255, 0.08);
+}
+
+.perf-preset-card--active:hover {
+  border-color: #4a9eff;
+}
+
+/* Radio circle */
+
+.perf-preset-card-radio {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 150ms ease;
+}
+
+.perf-preset-card--active .perf-preset-card-radio {
+  border-color: #4a9eff;
+}
+
+.perf-preset-card-radio-dot {
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: #4a9eff;
+  transition: width 150ms ease, height 150ms ease;
+}
+
+.perf-preset-card--active .perf-preset-card-radio-dot {
+  width: 10px;
+  height: 10px;
+}
+
+/* Card content */
+
+.perf-preset-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.perf-preset-card-label {
+  font-weight: 600;
+  color: #e0e0e4;
+  line-height: 1.3;
+}
+
+.perf-preset-card-subtitle {
+  font-weight: 400;
+  color: #888;
+  margin-left: 4px;
+}
+
+.perf-preset-card-desc {
+  font-size: 12px;
+  color: #888;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+/* Custom hint */
+
+.perf-custom-hint {
+  font-size: 12px;
+  color: #b08d57;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(176, 141, 87, 0.1);
+  border: 1px solid rgba(176, 141, 87, 0.2);
+}
+
+/* ---- Advanced toggle ---- */
+
+.perf-advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 0;
+  margin-bottom: 4px;
+  border: none;
+  background: none;
+  color: #999;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.perf-advanced-toggle:hover {
+  color: #ccc;
+}
+
+.perf-advanced-chevron {
+  font-size: 10px;
+  transition: transform 200ms ease;
+  display: inline-block;
+}
+
+.perf-advanced-chevron--open {
+  transform: rotate(90deg);
+}
+
+.perf-advanced-body {
+  animation: perf-expand 200ms ease;
+}
+
+@keyframes perf-expand {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ---- Slider rows ---- */
 
 .perf-row {

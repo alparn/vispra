@@ -230,6 +230,11 @@ export type SettingChangePacket = [
   unknown,  // value
 ];
 
+export type QualityPacket = [typeof PACKET_TYPES.quality, number];
+export type MinQualityPacket = [typeof PACKET_TYPES.min_quality, number];
+export type SpeedPacket = [typeof PACKET_TYPES.speed, number];
+export type MinSpeedPacket = [typeof PACKET_TYPES.min_speed, number];
+
 export type ControlPacket = [typeof PACKET_TYPES.control, string, ...unknown[]];
 
 // --- Clipboard packets ---
@@ -628,7 +633,11 @@ export type ClientPacket =
   | UnmapWindowPacket
   | SuspendPacket
   | ResumePacket
-  | SettingChangePacket;
+  | SettingChangePacket
+  | QualityPacket
+  | MinQualityPacket
+  | SpeedPacket
+  | MinSpeedPacket;
 
 // ---------------------------------------------------------------------------
 // Generic packet — either direction

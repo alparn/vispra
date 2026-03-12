@@ -23,42 +23,78 @@ export interface PerformanceSettings {
   minSpeed: number;
   /** Lossless auto-refresh delay in ms after region becomes static */
   autoRefreshDelay: number;
-  /** Max video resolution the server may use (width) */
-  videoMaxWidth: number;
-  /** Max video resolution the server may use (height) */
-  videoMaxHeight: number;
-  /** Allow server to downscale video before encoding */
-  videoScaling: boolean;
-  /** Video decoder frame-queue threshold before throttling */
-  frameThreshold: number;
-  /** Paint-pending timeout in ms (renderer) */
-  paintTimeout: number;
-  /** Resize quality for scaled bitmaps */
-  resizeQuality: "low" | "medium" | "high";
-  /** Network compression level (0–9) */
-  compressionLevel: number;
-  /** Bandwidth limit in bytes/s (0 = unlimited) */
-  bandwidthLimit: number;
 }
 
 // ---------------------------------------------------------------------------
-// Defaults
+// Presets
+// ---------------------------------------------------------------------------
+
+export type PresetId = "sharp" | "balanced" | "fast" | "low-bandwidth";
+
+export interface PerfPreset {
+  id: PresetId;
+  label: string;
+  subtitle: string;
+  description: string;
+  values: Readonly<PerformanceSettings>;
+}
+
+export const PERF_PRESETS: readonly PerfPreset[] = [
+  {
+    id: "sharp",
+    label: "Sharp",
+    subtitle: "LAN / fast network",
+    description: "Best image clarity, uses more bandwidth",
+    values: { quality: 100, minQuality: 80, speed: 70, minSpeed: 50, autoRefreshDelay: 100 },
+  },
+  {
+    id: "balanced",
+    label: "Balanced",
+    subtitle: "default",
+    description: "Good trade-off between clarity and responsiveness",
+    values: { quality: 80, minQuality: 50, speed: 90, minSpeed: 70, autoRefreshDelay: 150 },
+  },
+  {
+    id: "fast",
+    label: "Fast",
+    subtitle: "slow network / VPN",
+    description: "Smooth interaction, reduced sharpness during motion",
+    values: { quality: 60, minQuality: 30, speed: 100, minSpeed: 90, autoRefreshDelay: 300 },
+  },
+  {
+    id: "low-bandwidth",
+    label: "Low Bandwidth",
+    subtitle: "very slow",
+    description: "Minimum data usage, noticeably reduced quality",
+    values: { quality: 40, minQuality: 10, speed: 100, minSpeed: 95, autoRefreshDelay: 500 },
+  },
+] as const;
+
+const PRESET_KEYS: readonly (keyof PerformanceSettings)[] = [
+  "quality", "minQuality", "speed", "minSpeed", "autoRefreshDelay",
+];
+
+/** Return the preset whose values exactly match `settings`, or `null`. */
+export function matchPreset(settings: PerformanceSettings): PresetId | null {
+  for (const preset of PERF_PRESETS) {
+    if (PRESET_KEYS.every((k) => preset.values[k] === settings[k])) {
+      return preset.id;
+    }
+  }
+  return null;
+}
+
+/** Look up a preset by id. */
+export function getPreset(id: PresetId): PerfPreset {
+  return PERF_PRESETS.find((p) => p.id === id)!;
+}
+
+// ---------------------------------------------------------------------------
+// Defaults (= "Balanced" preset)
 // ---------------------------------------------------------------------------
 
 export const PERF_DEFAULTS: Readonly<PerformanceSettings> = {
-  quality: 80,
-  minQuality: 50,
-  speed: 90,
-  minSpeed: 70,
-  autoRefreshDelay: 150,
-  videoMaxWidth: 4096,
-  videoMaxHeight: 2160,
-  videoScaling: true,
-  frameThreshold: 250,
-  paintTimeout: 2000,
-  resizeQuality: "medium",
-  compressionLevel: 1,
-  bandwidthLimit: 0,
+  ...getPreset("balanced").values,
 };
 
 // ---------------------------------------------------------------------------

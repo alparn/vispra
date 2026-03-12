@@ -4,10 +4,13 @@
  * PerformancePanel — Side panel for tuning performance parameters.
  * Adjusts capabilities sent to the Xpra server and local decoder/renderer
  * behaviour at runtime.
+ *
+ * Primary UI: preset cards (Sharp / Balanced / Fast / Low Bandwidth).
+ * Advanced mode: individual sliders revealed via toggle.
  */
 
 import type { Component } from "solid-js";
-import { Show, createSignal, createEffect, on } from "solid-js";
+import { Show, For, createSignal, createEffect, on, createMemo } from "solid-js";
 import {
   performancePanelVisible,
   hidePerformancePanel,
@@ -15,7 +18,10 @@ import {
   updatePerfSettings,
   sendPacket,
   PERF_DEFAULTS,
+  PERF_PRESETS,
+  matchPreset,
   type PerformanceSettings,
+  type PresetId,
 } from "@/store";
 import { PACKET_TYPES } from "@/core/constants/packet-types";
 import "./PerformancePanel.css";
@@ -28,42 +34,53 @@ export const PerformancePanel: Component = () => {
   const [local, setLocal] = createSignal<PerformanceSettings>({
     ...PERF_DEFAULTS,
   });
+  const [selectedPreset, setSelectedPreset] = createSignal<PresetId | null>("balanced");
+  const [showAdvanced, setShowAdvanced] = createSignal(false);
 
   createEffect(
     on(performancePanelVisible, (visible) => {
       if (visible) {
-        setLocal({ ...perfSettings() });
+        const current = { ...perfSettings() };
+        setLocal(current);
+        setSelectedPreset(matchPreset(current));
       }
     }),
   );
+
+  const isCustom = createMemo(() => selectedPreset() === null);
+
+  const selectPreset = (id: PresetId) => {
+    const preset = PERF_PRESETS.find((p) => p.id === id)!;
+    setLocal({ ...preset.values });
+    setSelectedPreset(id);
+  };
 
   const set = <K extends keyof PerformanceSettings>(
     key: K,
     value: PerformanceSettings[K],
   ) => {
-    setLocal((prev) => ({ ...prev, [key]: value }));
+    setLocal((prev) => {
+      const next = { ...prev, [key]: value };
+      setSelectedPreset(matchPreset(next));
+      return next;
+    });
   };
 
   const handleApply = () => {
     const next = local();
     updatePerfSettings(next);
 
-    const settingChanges: [string, unknown][] = [
-      ["quality", next.quality],
-      ["min-quality", next.minQuality],
-      ["speed", next.speed],
-      ["min-speed", next.minSpeed],
-      ["auto_refresh_delay", next.autoRefreshDelay],
-    ];
-    for (const [name, value] of settingChanges) {
-      sendPacket([PACKET_TYPES.setting_change, name, value]);
-    }
+    sendPacket([PACKET_TYPES.quality, next.quality]);
+    sendPacket([PACKET_TYPES.min_quality, next.minQuality]);
+    sendPacket([PACKET_TYPES.speed, next.speed]);
+    sendPacket([PACKET_TYPES.min_speed, next.minSpeed]);
 
     hidePerformancePanel();
   };
 
   const handleReset = () => {
     setLocal({ ...PERF_DEFAULTS });
+    setSelectedPreset(matchPreset(PERF_DEFAULTS));
   };
 
   const handleBackdrop = (e: MouseEvent) => {
@@ -96,171 +113,121 @@ export const PerformancePanel: Component = () => {
 
           {/* Body */}
           <div class="perf-panel-body">
-            {/* ---- Encoding Quality / Speed ---- */}
+            {/* ---- Preset Cards ---- */}
             <div class="perf-section">
-              <div class="perf-section-title">Encoding</div>
+              <div class="perf-section-title">Choose a profile</div>
+              <p class="perf-section-subtitle">
+                Select a profile that matches your connection:
+              </p>
 
-              <Slider
-                label="Quality"
-                hint="Higher = sharper image, more bandwidth"
-                value={local().quality}
-                min={10}
-                max={100}
-                onChange={(v) => set("quality", v)}
-              />
-              <Slider
-                label="Min Quality"
-                hint="Floor quality during high motion"
-                value={local().minQuality}
-                min={1}
-                max={100}
-                onChange={(v) => set("minQuality", v)}
-              />
-              <Slider
-                label="Speed"
-                hint="Higher = faster encode, less compression"
-                value={local().speed}
-                min={10}
-                max={100}
-                onChange={(v) => set("speed", v)}
-              />
-              <Slider
-                label="Min Speed"
-                hint="Floor speed under heavy load"
-                value={local().minSpeed}
-                min={1}
-                max={100}
-                onChange={(v) => set("minSpeed", v)}
-              />
-            </div>
-
-            {/* ---- Video ---- */}
-            <div class="perf-section">
-              <div class="perf-section-title">Video</div>
-
-              <Slider
-                label="Max Video Width"
-                hint="Limits video codec resolution"
-                value={local().videoMaxWidth}
-                min={640}
-                max={7680}
-                step={64}
-                suffix="px"
-                onChange={(v) => set("videoMaxWidth", v)}
-              />
-              <Slider
-                label="Max Video Height"
-                hint="Limits video codec resolution"
-                value={local().videoMaxHeight}
-                min={480}
-                max={4320}
-                step={64}
-                suffix="px"
-                onChange={(v) => set("videoMaxHeight", v)}
-              />
-
-              <div class="perf-toggle-row">
-                <span class="perf-toggle-label">Video Scaling</span>
-                <label class="perf-toggle">
-                  <input
-                    type="checkbox"
-                    checked={local().videoScaling}
-                    onChange={(e) =>
-                      set("videoScaling", e.currentTarget.checked)
-                    }
-                  />
-                  <span class="perf-toggle-track">
-                    <span class="perf-toggle-knob" />
-                  </span>
-                </label>
+              <div class="perf-preset-cards">
+                <For each={PERF_PRESETS}>
+                  {(preset) => (
+                    <button
+                      class={`perf-preset-card ${selectedPreset() === preset.id ? "perf-preset-card--active" : ""}`}
+                      onClick={() => selectPreset(preset.id)}
+                    >
+                      <div class="perf-preset-card-radio">
+                        <div class="perf-preset-card-radio-dot" />
+                      </div>
+                      <div class="perf-preset-card-content">
+                        <div class="perf-preset-card-label">
+                          {preset.label}
+                          <span class="perf-preset-card-subtitle">
+                            ({preset.subtitle})
+                          </span>
+                        </div>
+                        <div class="perf-preset-card-desc">
+                          {preset.description}
+                        </div>
+                      </div>
+                    </button>
+                  )}
+                </For>
               </div>
-            </div>
 
-            {/* ---- Refresh & Rendering ---- */}
-            <div class="perf-section">
-              <div class="perf-section-title">Refresh &amp; Rendering</div>
-
-              <Slider
-                label="Auto-Refresh Delay"
-                hint="Lossless re-send delay after region becomes static"
-                value={local().autoRefreshDelay}
-                min={50}
-                max={1000}
-                step={10}
-                suffix="ms"
-                onChange={(v) => set("autoRefreshDelay", v)}
-              />
-              <Slider
-                label="Frame Threshold"
-                hint="Max queued frames before decoder throttles"
-                value={local().frameThreshold}
-                min={10}
-                max={1000}
-                step={10}
-                onChange={(v) => set("frameThreshold", v)}
-              />
-              <Slider
-                label="Paint Timeout"
-                hint="Max wait before forcing next paint"
-                value={local().paintTimeout}
-                min={200}
-                max={5000}
-                step={100}
-                suffix="ms"
-                onChange={(v) => set("paintTimeout", v)}
-              />
-
-              <div class="perf-row">
-                <div class="perf-row-header">
-                  <span class="perf-row-label">Resize Quality</span>
+              <Show when={isCustom()}>
+                <div class="perf-custom-hint">
+                  Custom — values don't match any preset
                 </div>
-                <select
-                  class="perf-select"
-                  value={local().resizeQuality}
-                  onChange={(e) =>
-                    set(
-                      "resizeQuality",
-                      e.currentTarget.value as "low" | "medium" | "high",
-                    )
-                  }
-                >
-                  <option value="low">Low (fastest)</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High (sharpest)</option>
-                </select>
+              </Show>
+            </div>
+
+            {/* ---- Advanced Toggle ---- */}
+            <button
+              class="perf-advanced-toggle"
+              onClick={() => setShowAdvanced((v) => !v)}
+            >
+              <span
+                class={`perf-advanced-chevron ${showAdvanced() ? "perf-advanced-chevron--open" : ""}`}
+              >
+                &#x25B6;
+              </span>
+              Advanced Settings
+            </button>
+
+            {/* ---- Advanced Sliders ---- */}
+            <Show when={showAdvanced()}>
+              <div class="perf-advanced-body">
+                <div class="perf-section">
+                  <div class="perf-section-title">Encoding</div>
+
+                  <Slider
+                    label="Quality"
+                    hint="Higher = sharper image, more bandwidth"
+                    value={local().quality}
+                    min={10}
+                    max={100}
+                    onChange={(v) => set("quality", v)}
+                  />
+                  <Slider
+                    label="Min Quality"
+                    hint="Floor quality during high motion"
+                    value={local().minQuality}
+                    min={1}
+                    max={100}
+                    onChange={(v) => set("minQuality", v)}
+                  />
+                  <Slider
+                    label="Speed"
+                    hint="Higher = faster encode, less compression"
+                    value={local().speed}
+                    min={10}
+                    max={100}
+                    onChange={(v) => set("speed", v)}
+                  />
+                  <Slider
+                    label="Min Speed"
+                    hint="Floor speed under heavy load"
+                    value={local().minSpeed}
+                    min={1}
+                    max={100}
+                    onChange={(v) => set("minSpeed", v)}
+                  />
+                </div>
+
+                <div class="perf-section">
+                  <div class="perf-section-title">Refresh</div>
+
+                  <Slider
+                    label="Auto-Refresh Delay"
+                    hint="Lossless re-send delay after region becomes static"
+                    value={local().autoRefreshDelay}
+                    min={50}
+                    max={1000}
+                    step={10}
+                    suffix="ms"
+                    onChange={(v) => set("autoRefreshDelay", v)}
+                  />
+                </div>
               </div>
-            </div>
-
-            {/* ---- Network ---- */}
-            <div class="perf-section">
-              <div class="perf-section-title">Network</div>
-
-              <Slider
-                label="Compression Level"
-                hint="Higher = smaller packets, more CPU"
-                value={local().compressionLevel}
-                min={0}
-                max={9}
-                onChange={(v) => set("compressionLevel", v)}
-              />
-              <Slider
-                label="Bandwidth Limit"
-                hint="0 = unlimited"
-                value={local().bandwidthLimit}
-                min={0}
-                max={100_000_000}
-                step={500_000}
-                suffix=" B/s"
-                format={formatBandwidth}
-                onChange={(v) => set("bandwidthLimit", v)}
-              />
-            </div>
+            </Show>
           </div>
 
           {/* Footer */}
           <div class="perf-panel-footer">
             <button class="perf-btn perf-btn-reset" onClick={handleReset}>
-              Reset Defaults
+              Reset
             </button>
             <button class="perf-btn perf-btn-apply" onClick={handleApply}>
               Apply
@@ -314,13 +281,3 @@ const Slider: Component<SliderProps> = (props) => {
   );
 };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatBandwidth(bytes: number): string {
-  if (bytes === 0) return "Unlimited";
-  if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB/s`;
-  if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(0)} KB/s`;
-  return `${bytes} B/s`;
-}
