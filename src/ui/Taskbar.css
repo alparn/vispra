@@ -1,6 +1,37 @@
 /*
  * Taskbar — fixed bottom bar for window management.
+ * Floating toolbar — compact top-center bar for desktop mode.
  */
+
+/* --- Desktop mode: floating toolbar --- */
+
+.floating-toolbar {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50000;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  background: rgba(24, 24, 28, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  opacity: 0.6;
+  transition: opacity 200ms ease;
+}
+
+.floating-toolbar:hover {
+  opacity: 1;
+}
+
+/* --- Seamless mode: full taskbar --- */
 
 .taskbar {
   position: fixed;

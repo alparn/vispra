@@ -2,7 +2,8 @@
  * Author: Ali Parnan
  *
  * Taskbar — bottom bar showing all open windows as clickable buttons.
- * Minimized windows can be restored by clicking their taskbar entry.
+ * In desktop mode the full taskbar is replaced by a compact floating
+ * toolbar (top-center) that only shows tray actions.
  */
 
 import type { Component } from "solid-js";
@@ -34,6 +35,93 @@ function taskbarLabel(w: WindowState): string {
   return `Window ${w.wid}`;
 }
 
+// ---------------------------------------------------------------------------
+// Tray buttons — shared between both modes
+// ---------------------------------------------------------------------------
+
+const TrayButtons: Component<{
+  fitToScreen?: () => void;
+  toggleFullscreen?: () => void;
+  showFit?: boolean;
+  desktop?: boolean;
+}> = (props) => (
+  <>
+    {/* Fullscreen toggle — always visible */}
+    <button
+      class="taskbar-tray-btn"
+      onClick={() => props.toggleFullscreen?.()}
+      title="Fullscreen"
+      aria-label="Toggle Fullscreen"
+    >
+      <svg
+        class="taskbar-tray-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+        <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+        <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+        <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+      </svg>
+    </button>
+    {/* Center window — seamless only */}
+    <Show when={props.showFit}>
+      <button
+        class="taskbar-tray-btn"
+        onClick={() => props.fitToScreen?.()}
+        title="Center window"
+        aria-label="Center window on screen"
+      >
+        <svg
+          class="taskbar-tray-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 2v4" />
+          <path d="M12 18v4" />
+          <path d="M2 12h4" />
+          <path d="M18 12h4" />
+        </svg>
+      </button>
+    </Show>
+    <button
+      class={`taskbar-tray-btn${performancePanelVisible() ? " active" : ""}`}
+      onClick={() => togglePerformancePanel()}
+      title="Performance Tuning"
+      aria-label="Toggle Performance Panel"
+    >
+      <svg
+        class="taskbar-tray-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M12 20a8 8 0 1 1 8-8" />
+        <path d="M12 12l3.5-3.5" />
+        <circle cx="12" cy="12" r="1.5" />
+        <path d="M4.9 15.5L3.5 17" />
+        <path d="M19.1 15.5L20.5 17" />
+      </svg>
+    </button>
+  </>
+);
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
 export const Taskbar: Component = () => {
   const hasDesktopWindow = createMemo(() =>
     Object.values(windows()).some((w) => w.isDesktop),
@@ -45,6 +133,14 @@ export const Taskbar: Component = () => {
       .filter((w) => !w.overrideRedirect && !w.tray && !w.isDesktop)
       .sort((a, b) => a.wid - b.wid);
   });
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      document.documentElement.requestFullscreen();
+    }
+  };
 
   const fitToScreen = () => {
     const wid = focusedWid();
@@ -86,71 +182,41 @@ export const Taskbar: Component = () => {
   };
 
   return (
-    <Show when={!hasDesktopWindow()}>
-      <div class="taskbar">
-        <div class="taskbar-windows">
-          <For each={entries()}>
-            {(w) => (
-              <button
-                class={`taskbar-entry${focusedWid() === w.wid ? " active" : ""}${w.minimized ? " minimized" : ""}`}
-                onClick={() => handleClick(w.wid)}
-                title={w.title ?? `Window ${w.wid}`}
-              >
-                <span class="taskbar-entry-icon" />
-                <span class="taskbar-entry-label">{taskbarLabel(w)}</span>
-              </button>
-            )}
-          </For>
+    <>
+      {/* Desktop mode: compact floating toolbar at top center */}
+      <Show when={hasDesktopWindow()}>
+        <div class="floating-toolbar">
+          <TrayButtons toggleFullscreen={toggleFullscreen} desktop={true} />
         </div>
+      </Show>
 
-        <div class="taskbar-tray">
-          <Show when={focusedWid() > 0}>
-            <button
-              class="taskbar-tray-btn"
-              onClick={fitToScreen}
-              title="Fit window to screen"
-              aria-label="Fit window to screen"
-            >
-              <svg
-                class="taskbar-tray-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M15 3h6v6" />
-                <path d="M9 21H3v-6" />
-                <path d="M21 3l-7 7" />
-                <path d="M3 21l7-7" />
-              </svg>
-            </button>
-          </Show>
-          <button
-            class={`taskbar-tray-btn${performancePanelVisible() ? " active" : ""}`}
-            onClick={() => togglePerformancePanel()}
-            title="Performance Tuning"
-            aria-label="Toggle Performance Panel"
-          >
-            <svg
-              class="taskbar-tray-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M12 20a8 8 0 1 1 8-8" />
-              <path d="M12 12l3.5-3.5" />
-              <circle cx="12" cy="12" r="1.5" />
-              <path d="M4.9 15.5L3.5 17" />
-              <path d="M19.1 15.5L20.5 17" />
-            </svg>
-          </button>
+      {/* Seamless mode: full taskbar at bottom */}
+      <Show when={!hasDesktopWindow()}>
+        <div class="taskbar">
+          <div class="taskbar-windows">
+            <For each={entries()}>
+              {(w) => (
+                <button
+                  class={`taskbar-entry${focusedWid() === w.wid ? " active" : ""}${w.minimized ? " minimized" : ""}`}
+                  onClick={() => handleClick(w.wid)}
+                  title={w.title ?? `Window ${w.wid}`}
+                >
+                  <span class="taskbar-entry-icon" />
+                  <span class="taskbar-entry-label">{taskbarLabel(w)}</span>
+                </button>
+              )}
+            </For>
+          </div>
+
+          <div class="taskbar-tray">
+            <TrayButtons
+              toggleFullscreen={toggleFullscreen}
+              fitToScreen={fitToScreen}
+              showFit={focusedWid() > 0}
+            />
+          </div>
         </div>
-      </div>
-    </Show>
+      </Show>
+    </>
   );
 };
