@@ -1,4 +1,5 @@
 import type { Component } from "solid-js";
+import { createEffect } from "solid-js";
 import "./styles/client.css";
 import { Screen } from "./ui/Screen";
 import { LoginOverlay } from "./ui/LoginOverlay";
@@ -16,6 +17,7 @@ import {
   connectOverlayVisible,
   hideConnectOverlay,
 } from "@/store";
+import { focusedWid, windows } from "@/store/windows";
 import type { ConnectOptions } from "./client";
 
 let connectCallback: ((options: ConnectOptions) => void) | null = null;
@@ -24,7 +26,17 @@ export function setConnectCallback(cb: (options: ConnectOptions) => void): void 
   connectCallback = cb;
 }
 
+const DEFAULT_TITLE = "Visulox";
+
 const App: Component = () => {
+  createEffect(() => {
+    const wid = focusedWid();
+    const wins = windows();
+    const win = wid ? wins[wid] : undefined;
+    const title = win?.title?.trim();
+    document.title = title ? `${title} — Visulox` : DEFAULT_TITLE;
+  });
+
   const handleConnect = (options: ConnectOptions) => {
     hideConnectOverlay();
     connectCallback?.(options);
