@@ -442,8 +442,15 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
         <div ref={overlayEl} class="resize-overlay" />
         <Show when={win()?.isDesktop && desktopLoading()}>
           <div class="desktop-loading-overlay">
-            <div class="desktop-loading-spinner" />
-            <p class="desktop-loading-text">Loading desktop session…</p>
+            <div class="desktop-loading-blob desktop-loading-blob--1" />
+            <div class="desktop-loading-blob desktop-loading-blob--2" />
+            <div class="desktop-loading-card">
+              <div class="desktop-loading-spinner">
+                <div class="desktop-loading-spinner__track" />
+                <div class="desktop-loading-spinner__ring" />
+              </div>
+              <p class="desktop-loading-text">Loading desktop session…</p>
+            </div>
           </div>
         </Show>
       </div>

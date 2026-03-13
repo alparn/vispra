@@ -33,6 +33,8 @@ import {
   unregisterPacketSender,
   registerRendererResizer,
   unregisterRendererResizer,
+  registerDisplayConfigurator,
+  unregisterDisplayConfigurator,
 } from "@/store/client-bridge";
 import { KeyboardController } from "@/core/input/keyboard";
 import { parse_modifiers, parse_server_modifiers } from "@/core/keycodes/modifiers";
@@ -131,8 +133,11 @@ export class XpraClient {
     this.container = options.container ?? document.getElementById("screen");
 
     setConnecting();
-    connectionStore.setProgress({ state: "Connecting", details: this.uri, progress: 20 });
-    this.callbacks.onProgress?.("Connecting", this.uri, 20);
+    connectionStore.setProgress({ state: "Initializing", details: "", progress: 20 });
+    this.callbacks.onProgress?.("Initializing", "", 20);
+
+    connectionStore.setProgress({ state: "Connecting to server", details: this.uri, progress: 30 });
+    this.callbacks.onProgress?.("Connecting to server", this.uri, 30);
 
     const useWorker = typeof Worker !== "undefined" && !options.webTransport;
     this.transport = useWorker
@@ -140,10 +145,14 @@ export class XpraClient {
       : new XpraWebSocketTransport();
 
     this.transport.setPacketHandler((p) => this.routePacket(p));
+
+    connectionStore.setProgress({ state: "Opening WebSocket connection", details: this.uri, progress: 50 });
+    this.callbacks.onProgress?.("Opening WebSocket connection", this.uri, 50);
     this.transport.open(this.uri);
 
     registerPacketSender((p) => this.send(p));
     registerRendererResizer((wid, w, h) => this.resizeRendererCanvas(wid, w, h));
+    registerDisplayConfigurator(() => this.sendConfigureDisplay());
     this.initAudio();
     this.initDecodeWorker();
     this.startRenderLoop();
@@ -158,6 +167,7 @@ export class XpraClient {
     this.stopResizeListener();
     unregisterPacketSender();
     unregisterRendererResizer();
+    unregisterDisplayConfigurator();
     unregisterMouseForwarder();
     if (this.mouseHandler) this.mouseHandler = null;
     if (this.audioManager) {
@@ -274,8 +284,19 @@ export class XpraClient {
 
       // Window lifecycle callbacks
       onNewWindow: (wid, x, y, w, h, metadata, clientProps) => {
+        console.log(
+          "[xpra-display] new-window wid=%d pos=%d,%d size=%dx%d title=%s",
+          wid, x, y, w, h, metadata?.["title"] ?? "(none)",
+        );
         this.ensureRenderer(wid, w, h, metadata);
         this.callbacks.onNewWindow?.(wid, x, y, w, h, metadata, clientProps);
+
+        const isDeskWin = Boolean(metadata?.["desktop"]) || Boolean(metadata?.["shadow"]);
+        if (isDeskWin) {
+          console.log("[xpra-display] desktop window detected → sending configure_display + buffer_refresh");
+          this.sendConfigureDisplay();
+          this.sendBufferRefresh(wid);
+        }
       },
       onLostWindow: (wid) => {
         this.renderers.delete(wid);
@@ -283,6 +304,7 @@ export class XpraClient {
         this.callbacks.onLostWindow?.(wid);
       },
       onWindowResized: (wid, width, height) => {
+        console.log("[xpra-display] window-resized wid=%d → %dx%d", wid, width, height);
         this.resizeRendererCanvas(wid, width, height);
         this.sendBufferRefresh(wid);
       },
@@ -360,6 +382,13 @@ export class XpraClient {
     const sessionName = String(hello["session_name"] ?? "");
     const w = this.container?.clientWidth || window.innerWidth || 1024;
     const h = this.container?.clientHeight || window.innerHeight || 768;
+    console.log(
+      "[xpra-display] onHello: server desktop=%sx%s, actual_desktop_size=%s, container=%dx%d, resolved=%dx%d",
+      hello["desktop_size"], hello["actual_desktop_size"],
+      JSON.stringify(hello["screen-sizes"]),
+      this.container?.clientWidth, this.container?.clientHeight,
+      w, h,
+    );
 
     connectionStore.setSessionInfo(sessionName, w, h);
     connectionStore.updateServerInfo({
@@ -445,6 +474,9 @@ export class XpraClient {
   // -----------------------------------------------------------------------
 
   private sendHello(): void {
+    connectionStore.setProgress({ state: "Sending handshake", details: "", progress: 80 });
+    this.callbacks.onProgress?.("Sending handshake", "", 80);
+
     const caps = this.buildCaps();
     if (this.options.passwords?.length) {
       (caps as Record<string, unknown>)["challenge"] = true;
@@ -489,6 +521,12 @@ export class XpraClient {
     const h = this.container?.clientHeight || window.innerHeight || 768;
     const dpi = getDPI();
     const vrefresh = settingsStore.settings.vrefresh;
+    console.log(
+      "[xpra-display] sendConfigureDisplay: container=%dx%d, window.inner=%dx%d, resolved=%dx%d, dpi=%d",
+      this.container?.clientWidth, this.container?.clientHeight,
+      window.innerWidth, window.innerHeight,
+      w, h, dpi,
+    );
     const packet = [PACKET_TYPES.configure_display, {
       "desktop-size": [w, h],
       "monitors": Object.fromEntries(getMonitors(w, h, dpi, vrefresh)),
@@ -503,9 +541,17 @@ export class XpraClient {
   private startResizeListener(): void {
     this.stopResizeListener();
     this.resizeHandler = () => {
+      console.log(
+        "[xpra-display] resize event: container=%dx%d, window.inner=%dx%d",
+        this.container?.clientWidth, this.container?.clientHeight,
+        window.innerWidth, window.innerHeight,
+      );
       window.clearTimeout(this.resizeDebounceTimer);
       this.resizeDebounceTimer = window.setTimeout(() => {
         if (connectionStore.isConnected()) {
+          console.log(
+            "[xpra-display] resize debounced → sendConfigureDisplay",
+          );
           this.sendConfigureDisplay();
         }
       }, 250);

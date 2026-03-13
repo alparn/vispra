@@ -67,6 +67,12 @@ export function handleNewWindow(packet: NewWindowPacket, ctx: HandlerContext): v
   if (isDeskWin) {
     posX = 0;
     posY = 0;
+    winW = desktopWidth;
+    winH = desktopHeight;
+    console.log(
+      "[xpra-display] desktop window wid=%d: server sent %dx%d, clamped to container %dx%d",
+      wid, w, h, winW, winH,
+    );
   } else {
     if (!metadata["fullscreen"] && !metadata["maximized"]) {
       winW = Math.min(w, desktopWidth);
@@ -233,6 +239,19 @@ export function handleWindowMetadata(packet: WindowMetadataPacket, ctx: HandlerC
 export function handleWindowResized(packet: WindowResizedPacket, ctx: HandlerContext): void {
   const [, wid, width, height] = packet;
   const win = getWindow(wid);
+
+  if (win?.isDesktop) {
+    const desktopW = ctx.desktopWidth ?? window.innerWidth;
+    const desktopH = ctx.desktopHeight ?? window.innerHeight;
+    console.log(
+      "[window-resized] wid=%d DESKTOP: server sent %dx%d, applying match_screen_size → %dx%d",
+      wid, width, height, desktopW, desktopH,
+    );
+    updateWindow(wid, { x: 0, y: 0, width: desktopW, height: desktopH });
+    ctx.onWindowResized?.(wid, desktopW, desktopH);
+    return;
+  }
+
   const { x, y } = ensureVisible(win?.x ?? 0, win?.y ?? 0, width, height);
   console.log("[window-resized] wid=", wid, "size=", width, "x", height, "pos=", x, y, "(was", win?.x, win?.y, win?.width, "x", win?.height, ")");
   updateWindow(wid, { x, y, width, height });
@@ -245,6 +264,20 @@ export function handleWindowResized(packet: WindowResizedPacket, ctx: HandlerCon
 
 export function handleWindowMoveResize(packet: WindowMoveResizePacket, ctx: HandlerContext): void {
   const [, wid, rawX, rawY, width, height] = packet;
+  const win = getWindow(wid);
+
+  if (win?.isDesktop) {
+    const desktopW = ctx.desktopWidth ?? window.innerWidth;
+    const desktopH = ctx.desktopHeight ?? window.innerHeight;
+    console.log(
+      "[window-move-resize] wid=%d DESKTOP: server sent %d,%d %dx%d, applying match_screen_size → 0,0 %dx%d",
+      wid, rawX, rawY, width, height, desktopW, desktopH,
+    );
+    updateWindow(wid, { x: 0, y: 0, width: desktopW, height: desktopH });
+    ctx.onWindowMoveResize?.(wid, 0, 0, desktopW, desktopH);
+    return;
+  }
+
   const { x, y } = ensureVisible(rawX, rawY, width, height);
   console.log("[window-move-resize] wid=", wid, "raw=", rawX, rawY, width, "x", height, "→ adjusted=", x, y);
   updateWindow(wid, { x, y, width, height });

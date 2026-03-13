@@ -1,33 +1,273 @@
-/* ProgressOverlay — Phase 6b-3 */
+/* ProgressOverlay — Modern glassmorphic loading screen */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ── Full-screen backdrop ── */
 
 .progress-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  font-family: system-ui, -apple-system, sans-serif;
   z-index: 10;
-  text-align: center;
-  padding-top: 3em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #01101D;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  overflow: hidden;
+  animation: overlay-fade-in 0.5s ease-out;
+}
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Animated background blobs ── */
+
+.progress-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  will-change: transform;
+  pointer-events: none;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.progress-blob--1 {
+  width: 420px;
+  height: 420px;
+  left: 15%;
+  top: 20%;
+  background: radial-gradient(circle, rgba(0, 180, 216, 0.12) 0%, transparent 70%);
+  animation: blob-drift-1 18s ease-in-out infinite;
+}
+
+.progress-blob--2 {
+  width: 340px;
+  height: 340px;
+  left: 75%;
+  top: 65%;
+  background: radial-gradient(circle, rgba(114, 9, 183, 0.10) 0%, transparent 70%);
+  animation: blob-drift-2 22s ease-in-out infinite;
+}
+
+.progress-blob--3 {
+  width: 280px;
+  height: 280px;
+  left: 60%;
+  top: 15%;
+  background: radial-gradient(circle, rgba(0, 245, 160, 0.08) 0%, transparent 70%);
+  animation: blob-drift-3 20s ease-in-out infinite;
+}
+
+.progress-blob--4 {
+  width: 360px;
+  height: 360px;
+  left: 25%;
+  top: 75%;
+  background: radial-gradient(circle, rgba(72, 149, 239, 0.10) 0%, transparent 70%);
+  animation: blob-drift-4 24s ease-in-out infinite;
+}
+
+@keyframes blob-drift-1 {
+  0%   { transform: translate(0, 0) scale(1); }
+  25%  { transform: translate(40px, -30px) scale(1.15); }
+  50%  { transform: translate(-30px, 20px) scale(0.95); }
+  75%  { transform: translate(20px, -40px) scale(1.1); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+@keyframes blob-drift-2 {
+  0%   { transform: translate(0, 0) scale(1); }
+  25%  { transform: translate(-35px, 25px) scale(1.1); }
+  50%  { transform: translate(25px, -35px) scale(0.9); }
+  75%  { transform: translate(-20px, 30px) scale(1.15); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+@keyframes blob-drift-3 {
+  0%   { transform: translate(0, 0) scale(1); }
+  25%  { transform: translate(30px, 20px) scale(1.12); }
+  50%  { transform: translate(-25px, -30px) scale(0.92); }
+  75%  { transform: translate(35px, 15px) scale(1.08); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+@keyframes blob-drift-4 {
+  0%   { transform: translate(0, 0) scale(1); }
+  25%  { transform: translate(-20px, -35px) scale(1.08); }
+  50%  { transform: translate(30px, 25px) scale(0.95); }
+  75%  { transform: translate(-25px, -20px) scale(1.12); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+/* ── Subtle grid overlay ── */
+
+.progress-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+}
+
+/* ── Glass card ── */
+
+.progress-card {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 48px 56px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 60px rgba(0, 0, 0, 0.4);
+  min-width: 380px;
+  animation: card-enter 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ── Spinner ring ── */
+
+.progress-spinner {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 4px;
+}
+
+.progress-spinner__track {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.06);
+}
+
+.progress-spinner__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: #00f5a0;
+  border-right-color: #00b4d8;
+  animation: spinner-rotate 1.2s linear infinite;
+}
+
+@keyframes spinner-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Rotating status text ── */
+
+.progress-text-container {
+  height: 28px;
+  position: relative;
+  overflow: hidden;
 }
 
 .progress-label {
-  font-size: 1.4em;
-  color: white;
-  line-height: 2em;
-  height: 2em;
   margin: 0;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  text-align: center;
+  line-height: 28px;
+  animation: text-slide-in 0.3s ease-out;
 }
+
+@keyframes text-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Custom progress bar ── */
+
+.progress-bar-wrapper {
+  width: 100%;
+  max-width: 380px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: visible;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #00b4d8, #48bfe3, #00f5a0);
+  background-size: 200% 100%;
+  transition: width 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  animation: gradient-shift 3s linear infinite;
+  position: relative;
+}
+
+@keyframes gradient-shift {
+  0%   { background-position: 0% 0%; }
+  50%  { background-position: 100% 0%; }
+  100% { background-position: 0% 0%; }
+}
+
+.progress-bar-glow {
+  position: absolute;
+  top: -4px;
+  width: 32px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(0, 245, 160, 0.5);
+  filter: blur(8px);
+  pointer-events: none;
+  transition: left 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* ── Progress details (URL) ── */
 
 .progress-details {
-  font-size: 1.2em;
-  color: white;
-  line-height: 1.5em;
-  height: 1.5em;
   margin: 0;
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  text-align: center;
+  max-width: 380px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.progress-bar {
-  height: 2em;
-  width: 80%;
-  max-width: 400px;
+/* ── Percentage ── */
+
+.progress-percentage {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.12em;
+  margin-top: -4px;
 }

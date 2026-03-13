@@ -316,6 +316,12 @@ export function updateCapabilities(
 export function makeHelloBase(input: CapabilitiesBuilderInput): Capabilities {
   const desktopWidth = input.container.clientWidth || window.innerWidth || 1024;
   const desktopHeight = input.container.clientHeight || window.innerHeight || 768;
+  console.log(
+    "[xpra-display] makeHelloBase: container=%dx%d, window.inner=%dx%d, resolved=%dx%d",
+    input.container.clientWidth, input.container.clientHeight,
+    window.innerWidth, window.innerHeight,
+    desktopWidth, desktopHeight,
+  );
   const displayCaps = buildDisplayCaps(
     desktopWidth,
     desktopHeight,

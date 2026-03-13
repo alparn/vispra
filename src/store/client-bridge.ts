@@ -17,10 +17,12 @@ type MouseEventForwarder = (
   e: MouseEvent | WheelEvent,
   win: MouseWindow,
 ) => void;
+type DisplayConfigurator = () => void;
 
 let sender: PacketSender | null = null;
 let rendererResizer: RendererResizer | null = null;
 let mouseForwarder: MouseEventForwarder | null = null;
+let displayConfigurator: DisplayConfigurator | null = null;
 
 export function registerPacketSender(fn: PacketSender): void {
   sender = fn;
@@ -63,6 +65,22 @@ export function focusWindow(wid: number): void {
  */
 export function sendCloseWindow(wid: number): void {
   sender?.([PACKET_TYPES.close_window, wid] as CloseWindowPacket);
+}
+
+// ---------------------------------------------------------------------------
+// Display configuration (delegates to XpraClient.sendConfigureDisplay)
+// ---------------------------------------------------------------------------
+
+export function registerDisplayConfigurator(fn: DisplayConfigurator): void {
+  displayConfigurator = fn;
+}
+
+export function unregisterDisplayConfigurator(): void {
+  displayConfigurator = null;
+}
+
+export function triggerConfigureDisplay(): void {
+  displayConfigurator?.();
 }
 
 // ---------------------------------------------------------------------------
