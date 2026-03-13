@@ -51,7 +51,7 @@ export class WindowRenderer {
     this.error = options.error ?? (() => {});
     this.exc = options.exc ?? (() => {});
 
-    const ctx = this.canvas.getContext("2d");
+    const ctx = this.canvas.getContext("2d", { desynchronized: true, alpha: false });
     if (!ctx) {
       throw new Error("WindowRenderer: failed to get 2d context");
     }
