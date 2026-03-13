@@ -19,6 +19,8 @@ import {
   sendPacket,
   togglePerformancePanel,
   performancePanelVisible,
+  toggleVirtualKeyboard,
+  virtualKeyboardVisible,
 } from "@/store";
 import { PACKET_TYPES } from "@/core/constants/packet-types";
 import type { ConfigureWindowPacket, BufferRefreshPacket } from "@/core/protocol/types";
@@ -67,6 +69,34 @@ const TrayButtons: Component<{
         <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
         <path d="M3 16v3a2 2 0 0 0 2 2h3" />
         <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+      </svg>
+    </button>
+    {/* Virtual keyboard toggle — always visible */}
+    <button
+      class={`taskbar-tray-btn${virtualKeyboardVisible() ? " active" : ""}`}
+      onClick={() => toggleVirtualKeyboard()}
+      title="Virtual Keyboard"
+      aria-label="Toggle Virtual Keyboard"
+    >
+      <svg
+        class="taskbar-tray-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect x="2" y="4" width="20" height="16" rx="2" />
+        <path d="M6 8h.01" />
+        <path d="M10 8h.01" />
+        <path d="M14 8h.01" />
+        <path d="M18 8h.01" />
+        <path d="M6 12h.01" />
+        <path d="M10 12h.01" />
+        <path d="M14 12h.01" />
+        <path d="M18 12h.01" />
+        <path d="M8 16h8" />
       </svg>
     </button>
     {/* Center desktop — desktop mode only */}

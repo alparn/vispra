@@ -126,13 +126,20 @@ export function patch_altgr(modifiers: string[]): string[] {
   const control = MODIFIERS_NAMES["Control"];
   const altgr = MODIFIERS_NAMES["AltGraph"];
 
-  if (altgr && !modifiers.includes(altgr)) {
+  if (!altgr) return modifiers;
+
+  if (!modifiers.includes(altgr)) {
     modifiers.push(altgr);
-    for (const remove of [alt, control]) {
-      const index = modifiers.indexOf(remove);
-      if (index >= 0) {
-        modifiers.splice(index, 1);
-      }
+  }
+  // Always remove spurious Alt and Control when AltGr is active.
+  // Previously this only ran when altgr was absent, but Firefox on Linux
+  // reports all three (Alt + Control + AltGraph) simultaneously for AltGr keys,
+  // which caused the server to receive ["control", "mod1", "mod5"] instead of ["mod5"].
+  for (const remove of [alt, control]) {
+    if (!remove) continue;
+    const index = modifiers.indexOf(remove);
+    if (index >= 0) {
+      modifiers.splice(index, 1);
     }
   }
   return modifiers;

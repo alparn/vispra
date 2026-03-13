@@ -24,6 +24,7 @@ import {
 } from "@/core/keycodes/key-maps";
 import { CHAR_TO_NAME } from "@/core/keycodes/keysym";
 import {
+  MODIFIERS_NAMES,
   get_event_modifiers,
   translate_modifiers,
   patch_altgr,
@@ -144,10 +145,8 @@ export class KeyboardController {
     const signal = this.abortController.signal;
 
     const onKeyDown = (e: KeyboardEvent) => {
-      console.log("[kbd-listener] keydown code=", e.code, "key=", e.key, "aborted=", signal.aborted, "state=", this.state);
       if (signal.aborted) return;
       const r = this.processKeyEvent(true, e);
-      console.log("[kbd-listener] keydown result allowDefault=", r);
       if (!r) {
         e.preventDefault();
         e.stopPropagation();
@@ -237,11 +236,14 @@ export class KeyboardController {
   }
 
   translateModifiers(modifiers: string[]): string[] {
-    let newModifiers = modifiers;
+    // translate_modifiers converts JS names ("Alt", "Control") → X11 names ("mod1", "control").
+    // patch_altgr compares against X11 names (MODIFIERS_NAMES values), so it MUST run
+    // after translation — calling it before with JS names caused it to silently do nothing.
+    const translated = translate_modifiers(modifiers, this.options.swapKeys);
     if (this.altgrState) {
-      newModifiers = patch_altgr(modifiers);
+      return patch_altgr(translated);
     }
-    return translate_modifiers(newModifiers, this.options.swapKeys);
+    return translated;
   }
 
   checkBrowserLanguage(keyLayout: string | null): void {
@@ -339,6 +341,9 @@ export class KeyboardController {
       keyname = keyname.replace("_L", "_R");
     }
 
+    const isMacOptionKey =
+      isMacOS() && (keyname === "Alt_L" || keyname === "Alt_R");
+
     if (
       keystring === "AltGraph" ||
       (keyname === "Alt_R" && (isWindows() || isMacOS())) ||
@@ -349,9 +354,49 @@ export class KeyboardController {
       keystring = "AltGraph";
     }
 
+    // On macOS the Option key is used as AltGr to compose characters (@ via
+    // Option+L, € via Option+E, etc.). We track altgrState locally but must
+    // NOT forward ISO_Level3_Shift to the server: the server's X11 state would
+    // then have Level3_Shift active, which corrupts the keysym lookup for the
+    // subsequent character key event and silently swallows it.
+    // For Linux/Windows the AltGr key fires keystring="AltGraph" directly and
+    // is handled correctly — only the Mac-specific Alt_L/Alt_R path is skipped.
+    if (isMacOptionKey) {
+      return true; // absorbed locally, do not forward to server
+    }
+
     const rawModifiers = get_event_modifiers(event);
-    const modifiers = this.translateModifiers(rawModifiers);
-    const keyval = keycode;
+    let modifiers = this.translateModifiers(rawModifiers);
+
+    // When AltGr/Option is active and the result is a regular character key
+    // (not the AltGr modifier itself), strip the AltGr modifier (mod5) from
+    // the packet.  The character is already fully encoded in keyname/keyval;
+    // sending mod5 would force the server to look for an AltGr-level mapping
+    // in *its own* keyboard layout (often US-only), which often has no
+    // matching entry and silently swallows the keystroke.
+    const MODIFIER_KEY_NAMES = new Set([
+      "Shift_L", "Shift_R", "Control_L", "Control_R",
+      "Alt_L", "Alt_R", "Meta_L", "Meta_R",
+      "ISO_Level3_Shift", "Mode_switch",
+      "Caps_Lock", "Num_Lock", "Scroll_Lock",
+      "Super_L", "Super_R", "Hyper_L", "Hyper_R",
+    ]);
+    if (this.altgrState && !MODIFIER_KEY_NAMES.has(keyname)) {
+      const altgrMod = MODIFIERS_NAMES["AltGraph"];
+      if (altgrMod) modifiers = modifiers.filter(m => m !== altgrMod);
+    }
+
+    // Use the Unicode code point of the actual character as X11 keyval.
+    // Browser keyCode (e.g. 81 for the Q key) is wrong for AltGr chars like @, €, {, etc.
+    // For BMP chars <= U+00FF the X11 keysym equals the code point directly.
+    // For higher Unicode chars (€ = U+20AC, etc.) X11 uses 0x01000000 | codepoint.
+    let keyval = keycode;
+    if (keystring.length === 1) {
+      const cp = keystring.codePointAt(0);
+      if (cp !== undefined) {
+        keyval = cp <= 0x00ff ? cp : (0x01000000 | cp);
+      }
+    }
     const group = 0;
 
     const shift = modifiers.includes("shift");
@@ -395,37 +440,29 @@ export class KeyboardController {
       const isClipboardModifierSet = rawModifiers.includes(clipboardModifier);
       if (isClipboardModifierSet) {
         const l = keyname.toLowerCase();
-        console.log("[kbd-clipboard] modifier active, keyname=", keyname, "l=", l, "rawMods=", rawModifiers, "clipMod=", clipboardModifier);
         if (l === "c" || l === "x") {
           allowDefault = true;
-          console.log("[kbd-clipboard] ALLOW DEFAULT for clipboard key:", l);
         }
         if (l === "v") {
           const appHint = this.options.getFocusedAppHint?.() ?? "unknown";
           const isShiftHeld = shift || rawModifiers.includes("Shift");
           const isDesktop = this.options.isFocusedDesktop?.() ?? false;
-          console.log("[kbd-clipboard] PASTE key, appHint=", appHint, "shift=", isShiftHeld, "desktop=", isDesktop);
           if (isShiftHeld && (appHint === "terminal" || isDesktop)) {
             terminalPaste = true;
             this.options.onSuppressNextPaste?.();
             this.options.onPasteAsKeystrokes?.();
-            console.log("[kbd-clipboard] terminal/desktop paste: Cmd+Shift+V → keystrokes");
           } else if (appHint === "terminal") {
             terminalPaste = true;
             this.options.onSuppressNextPaste?.();
             this.options.onPreparePasteForTerminal?.();
-            console.log("[kbd-clipboard] terminal paste: Cmd+V → clipboard-token + Shift+Insert to xterm");
           } else {
             allowDefault = true;
             this.options.setClipboardDelayedEventTime(performance.now() + CLIPBOARD_EVENT_DELAY);
             this.options.onSuppressNextPaste?.();
             this.options.onPreparePasteForServer?.();
-            console.log("[kbd-clipboard] standard paste for", appHint);
           }
         }
       }
-    } else {
-      if (pressed) console.log("[kbd-clipboard] clipboard check SKIPPED: enabled=", this.options.clipboardEnabled, "direction=", this.options.getClipboardDirection());
     }
 
     const wid = this.options.getFocusedWid();
