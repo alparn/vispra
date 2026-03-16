@@ -23,7 +23,7 @@
 }
 
 .window-frame.desktop-window .window-canvas {
-  object-fit: contain;
+  object-fit: fill; /* Strecken statt Letterboxing (contain) – kein schwarzer Rand beim Resize */
   background: #000;
 }
 

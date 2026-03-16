@@ -111,7 +111,10 @@ const TerminalClipboardHint: Component = () => {
 export const WindowFrame: Component<WindowFrameProps> = (props) => {
   const win = (): WindowState | undefined => windows()[props.wid];
   const [desktopLoading, setDesktopLoading] = createSignal(true);
-  const [viewportSize, setViewportSize] = createSignal({ w: window.innerWidth, h: window.innerHeight });
+  const [viewportSize, setViewportSize] = createSignal({
+    w: document.documentElement.clientWidth || window.innerWidth,
+    h: document.documentElement.clientHeight || window.innerHeight,
+  });
 
   const decorated = () => {
     const w = win();
@@ -187,7 +190,10 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
       const loadTimer = setTimeout(() => setDesktopLoading(false), 3000);
       onCleanup(() => clearTimeout(loadTimer));
 
-      const onResize = () => setViewportSize({ w: window.innerWidth, h: window.innerHeight });
+      const onResize = () => setViewportSize({
+        w: document.documentElement.clientWidth || window.innerWidth,
+        h: document.documentElement.clientHeight || window.innerHeight,
+      });
       window.addEventListener("resize", onResize);
       onCleanup(() => window.removeEventListener("resize", onResize));
     } else {

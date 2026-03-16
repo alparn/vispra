@@ -114,6 +114,7 @@ export class XpraClient {
   private serverPreciseWheel = false;
   private resizeHandler: (() => void) | null = null;
   private resizeDebounceTimer = 0;
+  private resizeObserver: ResizeObserver | null = null;
 
   constructor(callbacks: XpraClientCallbacks = {}) {
     this.callbacks = callbacks;
@@ -296,6 +297,7 @@ export class XpraClient {
           console.log("[xpra-display] desktop window detected → sending configure_display + buffer_refresh");
           this.sendConfigureDisplay();
           this.sendBufferRefresh(wid);
+          this.scheduleStagedBufferRefresh(wid);
         }
       },
       onLostWindow: (wid) => {
@@ -306,11 +308,29 @@ export class XpraClient {
       onWindowResized: (wid, width, height) => {
         console.log("[xpra-display] window-resized wid=%d → %dx%d", wid, width, height);
         this.resizeRendererCanvas(wid, width, height);
-        this.sendBufferRefresh(wid);
+        const win = windowsStore.getWindow(wid);
+        if (win?.isDesktop) {
+          // Desktop/RDP: Kein sofortiges buffer_refresh – xfreerdp braucht Zeit fuer /dynamic-resolution.
+          // Gestreckter Canvas bleibt sichtbar; Refresh erst nach Verzoegerung (800ms+).
+          const w = this.container?.clientWidth || window.innerWidth;
+          const h = this.container?.clientHeight || window.innerHeight;
+          this.send([PACKET_TYPES.configure_window, wid, 0, 0, w, h, {}, 0, {}, false] as ClientPacket);
+          this.scheduleStagedBufferRefresh(wid, true);
+        } else {
+          this.sendBufferRefresh(wid);
+        }
       },
       onWindowMoveResize: (wid, _x, _y, width, height) => {
         this.resizeRendererCanvas(wid, width, height);
-        this.sendBufferRefresh(wid);
+        const win = windowsStore.getWindow(wid);
+        if (win?.isDesktop) {
+          const w = this.container?.clientWidth || window.innerWidth;
+          const h = this.container?.clientHeight || window.innerHeight;
+          this.send([PACKET_TYPES.configure_window, wid, 0, 0, w, h, {}, 0, {}, false] as ClientPacket);
+          this.scheduleStagedBufferRefresh(wid, true);
+        } else {
+          this.sendBufferRefresh(wid);
+        }
       },
       onConfigureOverrideRedirect: (wid, _x, _y, width, height) => {
         this.resizeRendererCanvas(wid, width, height);
@@ -520,8 +540,8 @@ export class XpraClient {
   // -----------------------------------------------------------------------
 
   private sendConfigureDisplay(): void {
-    const w = this.container?.clientWidth || window.innerWidth || 1024;
-    const h = this.container?.clientHeight || window.innerHeight || 768;
+    const w = document.documentElement.clientWidth || this.container?.clientWidth || window.innerWidth || 1024;
+    const h = document.documentElement.clientHeight || this.container?.clientHeight || window.innerHeight || 768;
     const dpi = getDPI();
     const vrefresh = settingsStore.settings.vrefresh;
     console.log(
@@ -541,31 +561,53 @@ export class XpraClient {
     connectionStore.setSessionInfo(connectionStore.sessionName, w, h);
   }
 
+  private runDesktopResize(): void {
+    // Use documentElement for viewport (avoids scrollbar quirks); fallback to container/window.
+    const w = document.documentElement.clientWidth || this.container?.clientWidth || window.innerWidth;
+    const h = document.documentElement.clientHeight || this.container?.clientHeight || window.innerHeight;
+    const wins = windows();
+    const desktopWid = Object.keys(wins).find((id) => wins[Number(id)]?.isDesktop);
+    if (desktopWid != null) {
+      const wid = Number(desktopWid);
+      windowsStore.updateWindowGeometry(wid, 0, 0, w, h);
+      this.resizeRendererCanvas(wid, w, h);
+    }
+  }
+
   private startResizeListener(): void {
     this.stopResizeListener();
-    this.resizeHandler = () => {
-      console.log(
-        "[xpra-display] resize event: container=%dx%d, window.inner=%dx%d",
-        this.container?.clientWidth, this.container?.clientHeight,
-        window.innerWidth, window.innerHeight,
-      );
-      window.clearTimeout(this.resizeDebounceTimer);
-      this.resizeDebounceTimer = window.setTimeout(() => {
-        if (connectionStore.isConnected()) {
-          console.log(
-            "[xpra-display] resize debounced → sendConfigureDisplay",
-          );
-          this.sendConfigureDisplay();
-        }
-      }, 250);
+    const onResize = () => {
+      requestAnimationFrame(() => {
+        this.runDesktopResize();
+        window.clearTimeout(this.resizeDebounceTimer);
+        this.resizeDebounceTimer = window.setTimeout(() => {
+          if (connectionStore.isConnected()) {
+            this.sendConfigureDisplay();
+          }
+        }, 250);
+      });
     };
+    this.resizeHandler = onResize;
     window.addEventListener("resize", this.resizeHandler);
+    if (this.container && typeof ResizeObserver !== "undefined") {
+      this.resizeObserver = new ResizeObserver(() => onResize());
+      this.resizeObserver.observe(this.container);
+    }
   }
 
   private stopResizeListener(): void {
     if (this.resizeHandler) {
       window.removeEventListener("resize", this.resizeHandler);
       this.resizeHandler = null;
+    }
+    if (this.resizeObserver) {
+      try {
+        if (this.container) this.resizeObserver.unobserve(this.container);
+      } catch {
+        /* Element may be detached */
+      }
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
     }
     window.clearTimeout(this.resizeDebounceTimer);
     this.resizeDebounceTimer = 0;
@@ -973,6 +1015,7 @@ export class XpraClient {
         hasAlpha: Boolean(metadata["has-alpha"]),
         tray: false,
         useDecodeWorker: Boolean(this.decodeWorker),
+        stretchSmallContent: Boolean(metadata["desktop"] || metadata["shadow"]),
         debug: logDebug,
         error: logError,
         exc: logError,
@@ -998,6 +1041,7 @@ export class XpraClient {
       hasAlpha: Boolean(win?.metadata?.["has-alpha"]),
       tray: Boolean(win?.tray),
       useDecodeWorker: Boolean(this.decodeWorker),
+      stretchSmallContent: Boolean(win?.isDesktop),
       debug: logDebug,
       error: logError,
       exc: logError,
@@ -1019,6 +1063,14 @@ export class XpraClient {
       { "refresh-now": true, batch: { reset: true } },
       {},
     ] as ClientPacket);
+  }
+
+  /** Gestaffelte buffer_refresh-Kette für Desktop-Fenster. Bei Resize laengere Verzoegerung (xfreerdp /dynamic-resolution). */
+  private scheduleStagedBufferRefresh(wid: number, onResize = false): void {
+    const delays = onResize ? [800, 1500, 2500, 4000] : [300, 800, 1500, 3000];
+    for (const ms of delays) {
+      setTimeout(() => this.sendBufferRefresh(wid), ms);
+    }
   }
 
   // -----------------------------------------------------------------------

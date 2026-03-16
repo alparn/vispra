@@ -30,6 +30,7 @@ export class WindowRenderer {
   private readonly debug: (category: string, ...args: unknown[]) => void;
   private readonly error: (...args: unknown[]) => void;
   private readonly exc: (...args: unknown[]) => void;
+  private readonly stretchSmallContent: boolean;
 
   private paintQueue: unknown[][] = [];
   private paintPending = 0;
@@ -47,6 +48,7 @@ export class WindowRenderer {
     void options.tray;
     this.debugCategories = options.debugCategories ?? [];
     this.useDecodeWorker = options.useDecodeWorker ?? false;
+    this.stretchSmallContent = options.stretchSmallContent ?? false;
     this.debug = options.debug ?? (() => {});
     this.error = options.error ?? (() => {});
     this.exc = options.exc ?? (() => {});
@@ -90,8 +92,6 @@ export class WindowRenderer {
   updateCanvasGeometry(width: number, height: number): void {
     if (width === this._width && height === this._height) return;
 
-    const shrinking = width < this._width || height < this._height;
-
     this.paintQueue.length = 0;
     this.paintPending = 0;
 
@@ -101,8 +101,15 @@ export class WindowRenderer {
     const newCtx = newOff.getContext("2d")!;
     newCtx.imageSmoothingEnabled = false;
 
-    if (!shrinking && this._width > 0 && this._height > 0) {
-      newCtx.drawImage(this.offscreenCanvas, 0, 0);
+    // Immer vorhandenen Inhalt strecken statt schwarzen Bereich zeigen (kein harter Refresh)
+    if (this._width > 0 && this._height > 0) {
+      newCtx.imageSmoothingEnabled = true;
+      newCtx.drawImage(
+        this.offscreenCanvas,
+        0, 0, this._width, this._height,
+        0, 0, width, height,
+      );
+      newCtx.imageSmoothingEnabled = false;
     }
 
     this.offscreenCanvas = newOff;
@@ -124,6 +131,8 @@ export class WindowRenderer {
       this._awaitingFullFrameTimer = 0;
     }, 500);
     this._dirty = true;
+    // Sofort zeichnen, damit kein schwarzer Frame vor dem naechsten rAF erscheint
+    this.canvasCtx.drawImage(this.drawCanvas, 0, 0);
   }
 
   /**
@@ -286,6 +295,15 @@ export class WindowRenderer {
       decodeCallback();
     };
 
+    const shouldScaleToFill = (): boolean =>
+      this.stretchSmallContent &&
+      x === 0 &&
+      y === 0 &&
+      width < this._width &&
+      height < this._height &&
+      width >= this._width * 0.4 &&
+      height >= this._height * 0.4;
+
     const paintError = (e: unknown): void => {
       this.error("error painting", coding, e);
       this.paintPending = 0;
@@ -296,7 +314,13 @@ export class WindowRenderer {
       const w = (imgData as ImageBitmap).width;
       const h = (imgData as ImageBitmap).height;
       this.offscreenCtx.clearRect(x, y, w, h);
-      this.offscreenCtx.drawImage(imgData as ImageBitmap, x, y);
+      if (shouldScaleToFill()) {
+        this.offscreenCtx.imageSmoothingEnabled = true;
+        this.offscreenCtx.drawImage(imgData as ImageBitmap, 0, 0, w, h, 0, 0, this._width, this._height);
+        this.offscreenCtx.imageSmoothingEnabled = false;
+      } else {
+        this.offscreenCtx.drawImage(imgData as ImageBitmap, x, y);
+      }
       painted(false);
       this.may_paint_now();
     };
@@ -316,7 +340,18 @@ export class WindowRenderer {
         const rgbData = decode_rgb(packet);
         const img = this.offscreenCtx.createImageData(encWidth, encHeight);
         img.data.set(rgbData);
-        this.offscreenCtx.putImageData(img, x, y, 0, 0, encWidth, encHeight);
+        if (shouldScaleToFill()) {
+          const tmp = document.createElement("canvas");
+          tmp.width = encWidth;
+          tmp.height = encHeight;
+          const tmpCtx = tmp.getContext("2d")!;
+          tmpCtx.putImageData(img, 0, 0);
+          this.offscreenCtx.imageSmoothingEnabled = true;
+          this.offscreenCtx.drawImage(tmp, 0, 0, encWidth, encHeight, 0, 0, this._width, this._height);
+          this.offscreenCtx.imageSmoothingEnabled = false;
+        } else {
+          this.offscreenCtx.putImageData(img, x, y, 0, 0, encWidth, encHeight);
+        }
         painted(false);
         this.may_paint_now();
         return;
@@ -333,7 +368,13 @@ export class WindowRenderer {
             paintError(`invalid image size: ${image.width}x${image.height}`);
           } else {
             this.offscreenCtx.clearRect(x, y, width, height);
-            this.offscreenCtx.drawImage(image, x, y, width, height);
+            if (shouldScaleToFill()) {
+              this.offscreenCtx.imageSmoothingEnabled = true;
+              this.offscreenCtx.drawImage(image, 0, 0, width, height, 0, 0, this._width, this._height);
+              this.offscreenCtx.imageSmoothingEnabled = false;
+            } else {
+              this.offscreenCtx.drawImage(image, x, y, width, height);
+            }
             painted(false);
           }
           this.may_paint_now();

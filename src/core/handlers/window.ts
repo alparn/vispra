@@ -243,10 +243,6 @@ export function handleWindowResized(packet: WindowResizedPacket, ctx: HandlerCon
   if (win?.isDesktop) {
     const desktopW = ctx.desktopWidth ?? window.innerWidth;
     const desktopH = ctx.desktopHeight ?? window.innerHeight;
-    console.log(
-      "[window-resized] wid=%d DESKTOP: server sent %dx%d, applying match_screen_size → %dx%d",
-      wid, width, height, desktopW, desktopH,
-    );
     updateWindow(wid, { x: 0, y: 0, width: desktopW, height: desktopH });
     ctx.onWindowResized?.(wid, desktopW, desktopH);
     return;
@@ -269,10 +265,6 @@ export function handleWindowMoveResize(packet: WindowMoveResizePacket, ctx: Hand
   if (win?.isDesktop) {
     const desktopW = ctx.desktopWidth ?? window.innerWidth;
     const desktopH = ctx.desktopHeight ?? window.innerHeight;
-    console.log(
-      "[window-move-resize] wid=%d DESKTOP: server sent %d,%d %dx%d, applying match_screen_size → 0,0 %dx%d",
-      wid, rawX, rawY, width, height, desktopW, desktopH,
-    );
     updateWindow(wid, { x: 0, y: 0, width: desktopW, height: desktopH });
     ctx.onWindowMoveResize?.(wid, 0, 0, desktopW, desktopH);
     return;

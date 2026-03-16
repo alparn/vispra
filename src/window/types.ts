@@ -21,6 +21,8 @@ export interface WindowRendererOptions {
   readonly debugCategories?: readonly string[];
   /** If true, paint() bypasses the queue and calls do_paint directly. */
   readonly useDecodeWorker?: boolean;
+  /** If true (desktop), scale incoming draws smaller than canvas to fill (kein schwarzer Balken). */
+  readonly stretchSmallContent?: boolean;
   /** Debug logging callback. */
   readonly debug?: (category: string, ...args: unknown[]) => void;
   /** Error logging callback. */
