@@ -99,7 +99,14 @@
   opacity: 0.85;
 }
 
-.taskbar-entry-icon {
+img.taskbar-entry-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.taskbar-entry-icon--default {
   width: 16px;
   height: 16px;
   flex-shrink: 0;

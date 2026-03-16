@@ -16,6 +16,14 @@ export default defineConfig({
   base: "./",
   build: {
     target: "esnext",
+    minify: "esbuild",
+  },
+  esbuild: {
+    drop: process.env.VITE_KEEP_LOGS
+      ? []
+      : process.env.NODE_ENV === "production"
+        ? ["console", "debugger"]
+        : [],
   },
   worker: {
     format: "es",

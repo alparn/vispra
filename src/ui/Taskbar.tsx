@@ -295,7 +295,10 @@ export const Taskbar: Component = () => {
                   onClick={() => handleClick(w.wid)}
                   title={w.title ?? `Window ${w.wid}`}
                 >
-                  <span class="taskbar-entry-icon" />
+                  {w.iconDataUrl
+                    ? <img class="taskbar-entry-icon" src={w.iconDataUrl} alt="" />
+                    : <span class="taskbar-entry-icon taskbar-entry-icon--default" />
+                  }
                   <span class="taskbar-entry-label">{taskbarLabel(w)}</span>
                 </button>
               )}

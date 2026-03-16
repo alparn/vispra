@@ -50,6 +50,8 @@ export interface WindowState {
   isDesktop?: boolean;
   /** Saved geometry for restore after maximize/fullscreen */
   savedGeometry?: SavedGeometry;
+  /** Data URL of the window icon received from the server */
+  iconDataUrl?: string;
 }
 
 const TERMINAL_CLASSES = ["xterm", "urxvt", "rxvt", "konsole", "gnome-terminal", "alacritty", "kitty", "st", "terminator", "tilix", "sakura", "terminology"];
@@ -197,6 +199,15 @@ export function updateWindowMetadata(
   metadata: WindowMetadata,
 ): void {
   updateWindow(wid, { metadata });
+}
+
+/** Store a window icon as a data URL. */
+export function updateWindowIcon(wid: number, iconDataUrl: string): void {
+  setWindows((prev) => {
+    const win = prev[wid];
+    if (!win) return prev;
+    return { ...prev, [wid]: { ...win, iconDataUrl } };
+  });
 }
 
 /** Set stacking layer for a window. */
@@ -428,6 +439,7 @@ export const windowsStore = {
   clear,
   setWindow,
   updateWindowMetadata,
+  updateWindowIcon,
   setStackingLayer,
   getWindow,
   getWindowIds,

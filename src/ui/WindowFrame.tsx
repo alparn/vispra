@@ -399,7 +399,10 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
           role="button"
           tabIndex={-1}
         >
-          <span class="windowicon" />
+          {win()?.iconDataUrl
+            ? <img class="windowicon" src={win()!.iconDataUrl} alt="" />
+            : <span class="windowicon" />
+          }
           <span class="windowtitle">{win()?.title ?? ""}</span>
           <Show when={win()?.appHint === "terminal"}>
             <TerminalClipboardHint />

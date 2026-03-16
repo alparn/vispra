@@ -218,7 +218,15 @@
   background-color: #fff;
 }
 
-.windowicon {
+img.windowicon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  margin-right: 6px;
+  object-fit: contain;
+}
+
+span.windowicon {
   width: 20px;
   height: 20px;
   flex-shrink: 0;

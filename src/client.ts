@@ -315,6 +315,9 @@ export class XpraClient {
       onConfigureOverrideRedirect: (wid, _x, _y, width, height) => {
         this.resizeRendererCanvas(wid, width, height);
       },
+      onWindowIcon: (wid, w, h, encoding, imgData) => {
+        this.processWindowIcon(wid, w, h, encoding, imgData);
+      },
 
       // Audio
       processSoundData: (packet: unknown) => {
@@ -917,6 +920,36 @@ export class XpraClient {
       elapsed,
       "",
     ]);
+  }
+
+  // -----------------------------------------------------------------------
+  // Window icon
+  // -----------------------------------------------------------------------
+
+  private processWindowIcon(
+    wid: number,
+    w: number,
+    h: number,
+    encoding: string,
+    imgData: Uint8Array,
+  ): void {
+    const mime = encoding === "png" ? "image/png" : `image/${encoding}`;
+    const blob = new Blob([imgData as unknown as BlobPart], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx2d = canvas.getContext("2d");
+      if (!ctx2d) { URL.revokeObjectURL(url); return; }
+      ctx2d.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      const dataUrl = canvas.toDataURL("image/png");
+      windowsStore.updateWindowIcon(wid, dataUrl);
+    };
+    img.onerror = () => URL.revokeObjectURL(url);
+    img.src = url;
   }
 
   // -----------------------------------------------------------------------
