@@ -163,7 +163,7 @@
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
 }
 
-/* Maximierte Fenster: Resize-Handles ausblenden (wie Legacy) */
+/* Hide resize handles for maximized windows, matching the legacy client. */
 .window-frame.maximized .drag-resize-handles {
   display: none;
 }

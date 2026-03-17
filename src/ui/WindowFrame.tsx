@@ -387,7 +387,7 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
   const toggleMaximized = () => {
     const w = win();
     if (!w || w.isDesktop || w.overrideRedirect || w.tray) return;
-    /* Alt+F10 an WM senden – Server antwortet mit metadata.maximized, kein Race mit configure_window */
+    /* Send Alt+F10 to the WM and wait for metadata.maximized to avoid configure_window races. */
     raiseWindow(props.wid);
     focusWindow(props.wid);
     const sendKey = (keyname: string, pressed: boolean, mods: string[], keyval: number, keycode: number) => {

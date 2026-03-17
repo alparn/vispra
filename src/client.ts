@@ -313,7 +313,7 @@ export class XpraClient {
         if (win?.isDesktop) {
           const w = this.container?.clientWidth || window.innerWidth;
           const h = this.container?.clientHeight || window.innerHeight;
-          /* Feedback-Loop vermeiden: nur senden wenn Server-Größe von unserer abweicht */
+          /* Avoid a feedback loop: only send when the server size differs from ours. */
           const serverDiffers = Math.abs(width - w) > 2 || Math.abs(height - h) > 2;
           const now = Date.now();
           const cooldown = now - this.lastDesktopConfigure.t >= 400;
@@ -1088,7 +1088,7 @@ export class XpraClient {
    * settle the final workarea a little later. Re-sending configure_display
    * mimics the manual browser resize that fixes the initial wrong height.
    */
-  /** Gestaffelte buffer_refresh-Kette für Desktop-Fenster. Bei Resize laengere Verzoegerung (xfreerdp /dynamic-resolution). */
+  /** Staged buffer_refresh chain for desktop windows. Use longer delays on resize (xfreerdp /dynamic-resolution). */
   private scheduleStagedBufferRefresh(wid: number, onResize = false): void {
     const delays = onResize ? [800, 1500, 2500, 4000] : [300, 800, 1500, 3000];
     for (const ms of delays) {

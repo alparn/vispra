@@ -248,7 +248,7 @@ export function handleWindowResized(packet: WindowResizedPacket, ctx: HandlerCon
     return;
   }
 
-  /* Maximiert: kleinere Geometrie ignorieren (Race mit Maximize) */
+  /* When maximized, ignore smaller geometry updates caused by maximize races. */
   const fullW = ctx.desktopWidth ?? window.innerWidth;
   const fullH = ctx.desktopHeight ?? window.innerHeight;
   if (win?.maximized && (width < fullW * 0.9 || height < fullH * 0.9)) {
@@ -278,7 +278,7 @@ export function handleWindowMoveResize(packet: WindowMoveResizePacket, ctx: Hand
     return;
   }
 
-  /* Maximiert: kleinere Geometrie ignorieren (Race: Server sendet alte Geometrie vor unserem Maximize) */
+  /* When maximized, ignore smaller geometry updates if the server sends stale pre-maximize dimensions. */
   const fullW = ctx.desktopWidth ?? window.innerWidth;
   const fullH = ctx.desktopHeight ?? window.innerHeight;
   if (win?.maximized && (width < fullW * 0.9 || height < fullH * 0.9)) {
