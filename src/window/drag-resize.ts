@@ -140,6 +140,7 @@ export function setupDragResize(
   }
 
   const TAG = `[drag-resize wid=${container.dataset.wid ?? "?"}]`;
+  let resizeMoveLogCount = 0;
 
   function tryCapture(el: HTMLElement, pointerId: number): void {
     try {
@@ -168,6 +169,15 @@ export function setupDragResize(
   function handlePointerDown(e: PointerEvent): void {
     const target = e.target as HTMLElement;
     const targetDesc = `<${target.tagName.toLowerCase()}.${target.className}>`;
+    const hasResizeHandle = !!target.dataset?.resizeHandle;
+    const inHandlesOverlay = target.closest(".drag-resize-handles");
+
+    if (inHandlesOverlay && !hasResizeHandle) {
+      console.log(TAG, "pointerdown IN overlay but NOT on handle", {
+        target: targetDesc,
+        parent: target.parentElement?.className,
+      });
+    }
 
     if (!enabled) {
       console.debug(TAG, "pointerdown IGNORED: enabled=false, target=", targetDesc);
@@ -185,10 +195,18 @@ export function setupDragResize(
 
     if (handle) {
       if (!resizable) {
-        console.debug(TAG, "pointerdown on resize handle", handle, "IGNORED: resizable=false");
+        console.warn(TAG, "pointerdown on resize handle", handle, "IGNORED: resizable=false");
         return;
       }
-      console.log(TAG, "RESIZE START handle=", handle, "at", e.clientX, e.clientY);
+      const rect = getRect();
+      console.log(TAG, "RESIZE START", {
+        handle,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        startRect: rect,
+        target: target.className,
+        targetParent: target.parentElement?.className,
+      });
       isResizing = true;
       activeHandle = handle;
       startX = e.clientX;
@@ -257,6 +275,9 @@ export function setupDragResize(
       rect = roundRect(rect);
       currentRect = rect;
       applyStyle(rect);
+      if (resizeMoveLogCount++ < 3 || resizeMoveLogCount % 20 === 0) {
+        console.log(TAG, "RESIZE MOVE", { handle: h, dx, dy, rect });
+      }
       callbacks.onResize?.(activeHandle, rect);
     } else if (isDragging) {
       let rect = {
@@ -283,7 +304,12 @@ export function setupDragResize(
   function handlePointerUp(e: PointerEvent): void {
     if (e.button !== 0) return;
     if (isResizing) {
-      console.log(TAG, "RESIZE END rect:", JSON.stringify(currentRect));
+      console.log(TAG, "RESIZE END", {
+        finalRect: currentRect,
+        startRect,
+        target: (e.target as HTMLElement)?.tagName,
+      });
+      resizeMoveLogCount = 0;
       isResizing = false;
       setRect(currentRect);
       syncFromStore();
@@ -334,13 +360,15 @@ export function setupDragResize(
 const HANDLES: ResizeHandle[] = ["n", "e", "s", "w", "ne", "se", "sw", "nw"];
 
 function createResizeHandles(container: HTMLElement): void {
+  const wid = container.dataset?.wid ?? "?";
   const overlay = document.createElement("div");
   overlay.className = "drag-resize-handles";
+  overlay.dataset.wid = String(wid);
   overlay.style.cssText = `
     position: absolute;
     inset: -${HANDLE_OVERLAP}px;
     pointer-events: none;
-    z-index: 1;
+    z-index: 10;
   `;
 
   const handleStyle: Record<string, string> = {
@@ -359,6 +387,8 @@ function createResizeHandles(container: HTMLElement): void {
 
   container.style.position = "absolute";
   container.appendChild(overlay);
+  const handleCount = overlay.querySelectorAll("[data-resize-handle]").length;
+  console.log(`[drag-resize wid=${wid}] createResizeHandles: ${handleCount} handles, overlay parent=`, container.tagName, "children=", container.children.length);
 }
 
 function getHandlePosition(handle: ResizeHandle): Record<string, string> {

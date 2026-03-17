@@ -115,6 +115,7 @@ export class XpraClient {
   private resizeHandler: (() => void) | null = null;
   private resizeDebounceTimer = 0;
   private resizeObserver: ResizeObserver | null = null;
+  private lastDesktopConfigure = { w: 0, h: 0, t: 0 };
 
   constructor(callbacks: XpraClientCallbacks = {}) {
     this.callbacks = callbacks;
@@ -310,11 +311,16 @@ export class XpraClient {
         this.resizeRendererCanvas(wid, width, height);
         const win = windowsStore.getWindow(wid);
         if (win?.isDesktop) {
-          // Desktop/RDP: Kein sofortiges buffer_refresh – xfreerdp braucht Zeit fuer /dynamic-resolution.
-          // Gestreckter Canvas bleibt sichtbar; Refresh erst nach Verzoegerung (800ms+).
           const w = this.container?.clientWidth || window.innerWidth;
           const h = this.container?.clientHeight || window.innerHeight;
-          this.send([PACKET_TYPES.configure_window, wid, 0, 0, w, h, {}, 0, {}, false] as ClientPacket);
+          /* Feedback-Loop vermeiden: nur senden wenn Server-Größe von unserer abweicht */
+          const serverDiffers = Math.abs(width - w) > 2 || Math.abs(height - h) > 2;
+          const now = Date.now();
+          const cooldown = now - this.lastDesktopConfigure.t >= 400;
+          if (serverDiffers && cooldown) {
+            this.lastDesktopConfigure = { w, h, t: now };
+            this.send([PACKET_TYPES.configure_window, wid, 0, 0, w, h, {}, 0, {}, false] as ClientPacket);
+          }
           this.scheduleStagedBufferRefresh(wid, true);
         } else {
           this.sendBufferRefresh(wid);
@@ -326,7 +332,13 @@ export class XpraClient {
         if (win?.isDesktop) {
           const w = this.container?.clientWidth || window.innerWidth;
           const h = this.container?.clientHeight || window.innerHeight;
-          this.send([PACKET_TYPES.configure_window, wid, 0, 0, w, h, {}, 0, {}, false] as ClientPacket);
+          const serverDiffers = Math.abs(width - w) > 2 || Math.abs(height - h) > 2;
+          const now = Date.now();
+          const cooldown = now - this.lastDesktopConfigure.t >= 400;
+          if (serverDiffers && cooldown) {
+            this.lastDesktopConfigure = { w, h, t: now };
+            this.send([PACKET_TYPES.configure_window, wid, 0, 0, w, h, {}, 0, {}, false] as ClientPacket);
+          }
           this.scheduleStagedBufferRefresh(wid, true);
         } else {
           this.sendBufferRefresh(wid);
@@ -539,14 +551,21 @@ export class XpraClient {
   // Display configuration
   // -----------------------------------------------------------------------
 
+  private getViewportSize(): { w: number; h: number } {
+    const rect = this.container?.getBoundingClientRect();
+    const w = Math.round(rect?.width ?? this.container?.clientWidth ?? document.documentElement.clientWidth ?? window.innerWidth ?? 1024);
+    const h = Math.round(rect?.height ?? this.container?.clientHeight ?? document.documentElement.clientHeight ?? window.innerHeight ?? 768);
+    return { w, h };
+  }
+
   private sendConfigureDisplay(): void {
-    const w = document.documentElement.clientWidth || this.container?.clientWidth || window.innerWidth || 1024;
-    const h = document.documentElement.clientHeight || this.container?.clientHeight || window.innerHeight || 768;
+    const { w, h } = this.getViewportSize();
     const dpi = getDPI();
     const vrefresh = settingsStore.settings.vrefresh;
     console.log(
-      "[xpra-display] sendConfigureDisplay: container=%dx%d, window.inner=%dx%d, resolved=%dx%d, dpi=%d",
+      "[xpra-display] sendConfigureDisplay: container=%dx%d, rect=%sx%s, window.inner=%dx%d, resolved=%dx%d, dpi=%d",
       this.container?.clientWidth, this.container?.clientHeight,
+      this.container ? `${Math.round(this.container.getBoundingClientRect().width)}x${Math.round(this.container.getBoundingClientRect().height)}` : "none",
       window.innerWidth, window.innerHeight,
       w, h, dpi,
     );
@@ -559,12 +578,11 @@ export class XpraClient {
     }];
     this.send(packet as ClientPacket);
     connectionStore.setSessionInfo(connectionStore.sessionName, w, h);
+    this.lastDesktopConfigure = { w, h, t: Date.now() };
   }
 
   private runDesktopResize(): void {
-    // Use documentElement for viewport (avoids scrollbar quirks); fallback to container/window.
-    const w = document.documentElement.clientWidth || this.container?.clientWidth || window.innerWidth;
-    const h = document.documentElement.clientHeight || this.container?.clientHeight || window.innerHeight;
+    const { w, h } = this.getViewportSize();
     const wins = windows();
     const desktopWid = Object.keys(wins).find((id) => wins[Number(id)]?.isDesktop);
     if (desktopWid != null) {
@@ -1065,6 +1083,11 @@ export class XpraClient {
     ] as ClientPacket);
   }
 
+  /**
+   * Desktop mode can race on first paint: xpra, the WM and xfreerdp may all
+   * settle the final workarea a little later. Re-sending configure_display
+   * mimics the manual browser resize that fixes the initial wrong height.
+   */
   /** Gestaffelte buffer_refresh-Kette für Desktop-Fenster. Bei Resize laengere Verzoegerung (xfreerdp /dynamic-resolution). */
   private scheduleStagedBufferRefresh(wid: number, onResize = false): void {
     const delays = onResize ? [800, 1500, 2500, 4000] : [300, 800, 1500, 3000];

@@ -248,6 +248,14 @@ export function handleWindowResized(packet: WindowResizedPacket, ctx: HandlerCon
     return;
   }
 
+  /* Maximiert: kleinere Geometrie ignorieren (Race mit Maximize) */
+  const fullW = ctx.desktopWidth ?? window.innerWidth;
+  const fullH = ctx.desktopHeight ?? window.innerHeight;
+  if (win?.maximized && (width < fullW * 0.9 || height < fullH * 0.9)) {
+    console.log("[window-resized] wid=", wid, "IGNORED: maximized, got smaller", width, "x", height);
+    return;
+  }
+
   const { x, y } = ensureVisible(win?.x ?? 0, win?.y ?? 0, width, height);
   console.log("[window-resized] wid=", wid, "size=", width, "x", height, "pos=", x, y, "(was", win?.x, win?.y, win?.width, "x", win?.height, ")");
   updateWindow(wid, { x, y, width, height });
@@ -267,6 +275,14 @@ export function handleWindowMoveResize(packet: WindowMoveResizePacket, ctx: Hand
     const desktopH = ctx.desktopHeight ?? window.innerHeight;
     updateWindow(wid, { x: 0, y: 0, width: desktopW, height: desktopH });
     ctx.onWindowMoveResize?.(wid, 0, 0, desktopW, desktopH);
+    return;
+  }
+
+  /* Maximiert: kleinere Geometrie ignorieren (Race: Server sendet alte Geometrie vor unserem Maximize) */
+  const fullW = ctx.desktopWidth ?? window.innerWidth;
+  const fullH = ctx.desktopHeight ?? window.innerHeight;
+  if (win?.maximized && (width < fullW * 0.9 || height < fullH * 0.9)) {
+    console.log("[window-move-resize] wid=", wid, "IGNORED: maximized, got smaller geometry", width, "x", height);
     return;
   }
 

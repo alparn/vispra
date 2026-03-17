@@ -163,6 +163,11 @@
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
 }
 
+/* Maximierte Fenster: Resize-Handles ausblenden (wie Legacy) */
+.window-frame.maximized .drag-resize-handles {
+  display: none;
+}
+
 .window-frame .window-content {
   position: relative;
   overflow: hidden;
@@ -185,16 +190,77 @@
   inset: 0;
   pointer-events: none;
   opacity: 0;
-  background: rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-  transition: opacity 200ms ease-out;
-  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(0, 180, 216, 0.14), transparent 35%),
+    radial-gradient(circle at 80% 80%, rgba(114, 9, 183, 0.12), transparent 35%),
+    rgba(1, 16, 29, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: opacity 220ms ease-out, backdrop-filter 220ms ease-out;
+  z-index: 5;
 }
 
 .resize-overlay.active {
   opacity: 1;
-  transition: opacity 50ms ease-in;
+  transition: opacity 80ms ease-in;
+}
+
+.resize-overlay-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 220px;
+  padding: 20px 24px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.34);
+  transform: translateY(8px) scale(0.98);
+  opacity: 0;
+  transition: transform 200ms ease, opacity 200ms ease;
+}
+
+.resize-overlay.active .resize-overlay-card {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+.resize-overlay-spinner {
+  position: relative;
+  width: 34px;
+  height: 34px;
+}
+
+.resize-overlay-spinner__track {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.10);
+}
+
+.resize-overlay-spinner__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: #00f5a0;
+  border-right-color: #00b4d8;
+  animation: desktop-spin 1s linear infinite;
+}
+
+.resize-overlay-text {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
 .windowhead {
@@ -336,9 +402,16 @@ span.windowicon {
   text-align: center;
 }
 
-/* Resize handles – from drag-resize.ts */
+/* Resize handles – Legacy-style wie xpra-html5 (ui-resizable-*) */
+
 .drag-resize-handle {
-  cursor: n-resize;
+  position: absolute;
+  display: block;
+  touch-action: none;
+}
+
+.drag-resize-handle:hover {
+  background: rgba(0, 100, 255, 0.15);
 }
 
 .drag-resize-handle.drag-resize-n {
@@ -364,4 +437,8 @@ span.windowicon {
 }
 .drag-resize-handle.drag-resize-nw {
   cursor: nw-resize;
+}
+
+.windowbtn-maximize:hover {
+  background-color: rgba(0, 0, 0, 0.18);
 }

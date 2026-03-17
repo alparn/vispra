@@ -43,6 +43,7 @@ export {
   raiseWindow,
   minimizeWindow,
   restoreWindow,
+  setMaximized,
   updateWindowIcon,
   type WindowState,
 } from "./windows";

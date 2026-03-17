@@ -34,6 +34,15 @@ export interface WindowFrameProps {
   onClose?: (wid: number) => void;
 }
 
+function getScreenViewportSize(): { w: number; h: number } {
+  const screenEl = document.getElementById("screen");
+  const rect = screenEl?.getBoundingClientRect();
+  return {
+    w: Math.round(rect?.width ?? screenEl?.clientWidth ?? document.documentElement.clientWidth ?? window.innerWidth),
+    h: Math.round(rect?.height ?? screenEl?.clientHeight ?? document.documentElement.clientHeight ?? window.innerHeight),
+  };
+}
+
 function getOffsets(decorated: boolean) {
   const left = BORDER_WIDTH;
   const right = BORDER_WIDTH;
@@ -111,10 +120,10 @@ const TerminalClipboardHint: Component = () => {
 export const WindowFrame: Component<WindowFrameProps> = (props) => {
   const win = (): WindowState | undefined => windows()[props.wid];
   const [desktopLoading, setDesktopLoading] = createSignal(true);
-  const [viewportSize, setViewportSize] = createSignal({
-    w: document.documentElement.clientWidth || window.innerWidth,
-    h: document.documentElement.clientHeight || window.innerHeight,
-  });
+  const [viewportSize, setViewportSize] = createSignal(getScreenViewportSize());
+  const [transitionLabel, setTransitionLabel] = createSignal("Synchronizing view…");
+  const [transitionActive, setTransitionActive] = createSignal(false);
+  const showResizeTransition = () => transitionActive() && !(win()?.isDesktop && desktopLoading());
 
   const decorated = () => {
     const w = win();
@@ -143,7 +152,7 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
   let containerEl!: HTMLDivElement;
   let headerEl!: HTMLDivElement;
   let canvasEl!: HTMLCanvasElement;
-  let overlayEl!: HTMLDivElement;
+  let transitionHideTimer = 0;
 
   onMount(() => {
     const wid = props.wid;
@@ -154,19 +163,46 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
       return;
     }
 
+    const showTransition = (label: string, minVisibleMs = 900) => {
+      setTransitionLabel(label);
+      setTransitionActive(true);
+      if (transitionHideTimer) clearTimeout(transitionHideTimer);
+      transitionHideTimer = window.setTimeout(() => {
+        setTransitionActive(false);
+        transitionHideTimer = 0;
+      }, minVisibleMs);
+    };
+    const hideTransition = () => {
+      if (transitionHideTimer) {
+        clearTimeout(transitionHideTimer);
+        transitionHideTimer = 0;
+      }
+      setTransitionActive(false);
+    };
+
     const screenEl = document.getElementById("screen");
     const containment = screenEl;
 
     const dec = decorated();
     const res = resizable();
-    const dragHandle = dec && headerEl ? headerEl : containerEl;
+    /* Legacy: draggable auf ganzem Fenster, cancel="canvas" – nicht nur Titelleiste */
+    const dragHandle = containerEl;
 
     const w = win();
+
+    console.log(TAG, "setup params", {
+      dec,
+      res,
+      dragHandle: dragHandle?.tagName,
+      hasHeader: !!headerEl,
+      containment: containment?.id ?? "screen",
+    });
 
     const getRect = (): DragResizeRect => {
       const w = win();
       if (!w) return { x: 0, y: 0, width: 100, height: 100 };
-      return toOuterRect(w.x, w.y, w.width, w.height, dec);
+      const r = toOuterRect(w.x, w.y, w.width, w.height, dec);
+      return r;
     };
 
     let resizeThrottleTimer = 0;
@@ -174,6 +210,7 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
 
     const commitRect = (outerRect: DragResizeRect): void => {
       const geom = fromOuterRect(outerRect, dec);
+      console.log(TAG, "commitRect", { outerRect, geom });
       updateWindowGeometry(wid, geom.x, geom.y, geom.width, geom.height);
       sendConfigureWindow(wid, geom.x, geom.y, geom.width, geom.height);
     };
@@ -190,10 +227,10 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
       const loadTimer = setTimeout(() => setDesktopLoading(false), 3000);
       onCleanup(() => clearTimeout(loadTimer));
 
-      const onResize = () => setViewportSize({
-        w: document.documentElement.clientWidth || window.innerWidth,
-        h: document.documentElement.clientHeight || window.innerHeight,
-      });
+      const onResize = () => {
+        setViewportSize(getScreenViewportSize());
+        showTransition("Adapting workspace…", 1100);
+      };
       window.addEventListener("resize", onResize);
       onCleanup(() => window.removeEventListener("resize", onResize));
     } else {
@@ -241,7 +278,7 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
     const onGlobalPointerDown = (e: PointerEvent) => {
       const t = e.target as HTMLElement;
       if (t === canvasEl || canvasEl.contains(t)) return;
-      if (containerEl.contains(t) && !t.closest(".window-header") && !t.closest(".windowbtn") && !t.dataset?.resizeHandle) {
+      if (containerEl.contains(t) && !t.closest(".windowhead") && !t.closest(".windowbtn") && !t.dataset?.resizeHandle) {
         mouseTracking = true;
         document.addEventListener("pointermove", onDocumentPointerMove);
         document.addEventListener("pointerup", onDocumentPointerUp);
@@ -278,10 +315,11 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
           onMoveEnd: () => {
             sendBufferRefresh(wid);
           },
-          onResizeStart: () => {
+          onResizeStart: (handle) => {
+            console.log(TAG, "onResizeStart", { handle });
             raiseWindow(wid);
             focusWindow(wid);
-            if (overlayEl) overlayEl.classList.add("active");
+            showTransition(win()?.isDesktop ? "Reflowing desktop…" : "Resizing window…");
           },
           onResize: (_handle, outerRect) => {
             if (resizeThrottleTimer) return;
@@ -297,14 +335,13 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
               resizeThrottleTimer = 0;
             }
             const g = fromOuterRect(finalRect, dec);
+            console.log(TAG, "onResizeEnd", { finalRect, geom: g });
             resizeRenderer(wid, g.width, g.height);
             sendConfigureWindow(wid, g.x, g.y, g.width, g.height);
             sendBufferRefresh(wid);
             setTimeout(() => sendBufferRefresh(wid), 150);
             setTimeout(() => sendBufferRefresh(wid), 400);
-            setTimeout(() => {
-              if (overlayEl) overlayEl.classList.remove("active");
-            }, 350);
+            setTimeout(() => hideTransition(), 650);
           },
         },
       },
@@ -319,6 +356,7 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
       document.removeEventListener("pointerdown", onGlobalPointerDown, true);
       document.removeEventListener("pointermove", onDocumentPointerMove);
       document.removeEventListener("pointerup", onDocumentPointerUp);
+      if (transitionHideTimer) clearTimeout(transitionHideTimer);
       unregisterWindowCanvas(wid);
       teardown();
     });
@@ -333,12 +371,45 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
     }
   };
 
+  const handleHeaderDblClick = (e: MouseEvent) => {
+    if ((e.target as HTMLElement)?.closest?.(".windowbtn")) return;
+    if (resizable()) toggleMaximized();
+  };
+
   const handleClose = () => {
     if (props.onClose) {
       props.onClose(props.wid);
     } else {
       sendCloseWindow(props.wid);
     }
+  };
+
+  const toggleMaximized = () => {
+    const w = win();
+    if (!w || w.isDesktop || w.overrideRedirect || w.tray) return;
+    /* Alt+F10 an WM senden – Server antwortet mit metadata.maximized, kein Race mit configure_window */
+    raiseWindow(props.wid);
+    focusWindow(props.wid);
+    const sendKey = (keyname: string, pressed: boolean, mods: string[], keyval: number, keycode: number) => {
+      sendPacket([
+        PACKET_TYPES.key_action,
+        props.wid,
+        keyname,
+        pressed,
+        mods,
+        keyval,
+        "",
+        keycode,
+        0,
+      ] as unknown as ConfigureWindowPacket);
+    };
+    setTimeout(() => {
+      sendKey("Alt_L", true, [], 65513, 64);
+      sendKey("F10", true, ["mod1"], 65479, 76);
+      sendKey("F10", false, ["mod1"], 65479, 76);
+      sendKey("Alt_L", false, [], 65513, 64);
+    }, 50);
+    setTimeout(() => sendBufferRefresh(props.wid), 400);
   };
 
   const outer = () => {
@@ -370,6 +441,7 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
     if (props.focused) c.push("windowinfocus");
     if (w?.overrideRedirect) c.push("override-redirect");
     if (w?.tray) c.push("tray");
+    if (w?.maximized) c.push("maximized");
     if (resizable() || decorated()) c.push("border");
     (w?.windowType ?? []).forEach((t) => c.push(`window-${t}`));
     return c.join(" ");
@@ -402,6 +474,7 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
           ref={el => (headerEl = el)}
           class="windowhead"
           onClick={handleHeaderClick}
+          onDblClick={handleHeaderDblClick}
           role="button"
           tabIndex={-1}
         >
@@ -426,7 +499,20 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
                 role="button"
                 title="Minimize"
               >
-                &#x2013;
+                {"\u2013"}
+              </span>
+              <span
+                class="windowbtn windowbtn-maximize"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  toggleMaximized();
+                }}
+                role="button"
+                title={win()?.maximized ? "Restore" : "Maximize"}
+              >
+                {win()?.maximized ? "\u25A1" : "\u2610"}
               </span>
               <span
                 class="windowbtn windowbtn-close"
@@ -448,7 +534,17 @@ export const WindowFrame: Component<WindowFrameProps> = (props) => {
           ref={canvasEl}
           class="window-canvas"
         />
-        <div ref={overlayEl} class="resize-overlay" />
+        <div
+          class={`resize-overlay${showResizeTransition() ? " active" : ""}`}
+        >
+          <div class="resize-overlay-card">
+            <div class="resize-overlay-spinner">
+              <div class="resize-overlay-spinner__track" />
+              <div class="resize-overlay-spinner__ring" />
+            </div>
+            <p class="resize-overlay-text">{transitionLabel()}</p>
+          </div>
+        </div>
         <Show when={win()?.isDesktop && desktopLoading()}>
           <div class="desktop-loading-overlay">
             <div class="desktop-loading-blob desktop-loading-blob--1" />

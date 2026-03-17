@@ -7,7 +7,7 @@
  */
 
 import type { Component } from "solid-js";
-import { For, Show, createMemo } from "solid-js";
+import { For, Show, createMemo, createSignal, createEffect, onCleanup } from "solid-js";
 import {
   windows,
   focusedWid,
@@ -15,6 +15,7 @@ import {
   raiseWindow,
   minimizeWindow,
   restoreWindow,
+  sendCloseWindow,
   updateWindowGeometry,
   sendPacket,
   togglePerformancePanel,
@@ -41,14 +42,160 @@ function taskbarLabel(w: WindowState): string {
 // Tray buttons — shared between both modes
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Open Windows dropdown — legacy-style window list for restore/minimize/close
+// ---------------------------------------------------------------------------
+
+const OpenWindowsDropdown: Component<{
+  entries: () => WindowState[];
+  onRestore: (wid: number) => void;
+  onMinimize: (wid: number) => void;
+  onMaximize: (wid: number) => void;
+  onClose: (wid: number) => void;
+}> = (props) => {
+  const [open, setOpen] = createSignal(false);
+  let containerEl: HTMLDivElement | undefined;
+
+  const toggle = () => setOpen((o) => !o);
+  createEffect(() => {
+    if (!open()) return;
+    const handler = (e: MouseEvent) => {
+      if (containerEl && !containerEl.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const t = setTimeout(() => document.addEventListener("mousedown", handler), 0);
+    onCleanup(() => {
+      clearTimeout(t);
+      document.removeEventListener("mousedown", handler);
+    });
+  });
+  const close = () => setOpen(false);
+
+  const handleRowClick = (wid: number) => (e: MouseEvent) => {
+    if ((e.target as HTMLElement).closest(".open-windows-row-actions")) return;
+    const w = windows()[wid];
+    if (w?.minimized) {
+      props.onRestore(wid);
+    } else {
+      raiseWindow(wid);
+      focusWindow(wid);
+    }
+    close();
+  };
+
+  return (
+    <div ref={(el) => { containerEl = el; }} class="open-windows-wrapper">
+      <button
+        class="taskbar-tray-btn"
+        onClick={toggle}
+        title="Open Windows"
+        aria-label="Open Windows"
+        aria-expanded={open()}
+      >
+        <svg
+          class="taskbar-tray-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="3" width="7" height="7" />
+          <rect x="14" y="3" width="7" height="7" />
+          <rect x="14" y="14" width="7" height="7" />
+          <rect x="3" y="14" width="7" height="7" />
+        </svg>
+      </button>
+      <Show when={open()}>
+        <div
+          class="open-windows-dropdown"
+          role="menu"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <For each={props.entries()}>
+            {(w) => (
+              <div
+                class={`open-windows-row${focusedWid() === w.wid ? " active" : ""}${w.minimized ? " minimized" : ""}`}
+                role="menuitem"
+                onClick={handleRowClick(w.wid)}
+              >
+                <div class="open-windows-row-main">
+                  {w.iconDataUrl
+                    ? <img class="open-windows-icon" src={w.iconDataUrl} alt="" />
+                    : <span class="open-windows-icon open-windows-icon--default" />}
+                  <span class="open-windows-title">{taskbarLabel(w)}</span>
+                </div>
+                <div class="open-windows-row-actions">
+                  <button
+                    type="button"
+                    class="open-windows-action"
+                    title="Minimize"
+                    onClick={(e) => { e.stopPropagation(); props.onMinimize(w.wid); }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                      <path d="M5 12h14" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="open-windows-action"
+                    title="Maximize"
+                    onClick={(e) => { e.stopPropagation(); props.onMaximize(w.wid); }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                      <rect x="3" y="3" width="18" height="18" rx="2" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="open-windows-action"
+                    title="Close"
+                    onClick={(e) => { e.stopPropagation(); props.onClose(w.wid); close(); }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+          </For>
+        </div>
+      </Show>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Tray buttons — shared between both modes
+// ---------------------------------------------------------------------------
+
 const TrayButtons: Component<{
   fitToScreen?: () => void;
   centerDesktop?: () => void;
   toggleFullscreen?: () => void;
   showFit?: boolean;
   desktop?: boolean;
+  openWindowsEntries?: () => WindowState[];
+  onMaximizeWindow?: (wid: number) => void;
 }> = (props) => (
   <>
+    {/* Open Windows — desktop mode only (legacy-style) */}
+    <Show when={props.desktop && props.openWindowsEntries}>
+      <OpenWindowsDropdown
+        entries={props.openWindowsEntries!}
+        onRestore={(wid) => {
+          restoreWindow(wid);
+          raiseWindow(wid);
+          focusWindow(wid);
+        }}
+        onMinimize={minimizeWindow}
+        onMaximize={props.onMaximizeWindow ?? (() => {})}
+        onClose={sendCloseWindow}
+      />
+    </Show>
     {/* Fullscreen toggle — always visible */}
     <button
       class="taskbar-tray-btn"
@@ -190,6 +337,14 @@ export const Taskbar: Component = () => {
       .sort((a, b) => a.wid - b.wid);
   });
 
+  // All windows for Open Windows dropdown (desktop mode) — includes desktop window
+  const openWindowsEntries = createMemo(() => {
+    const all = windows();
+    return Object.values(all)
+      .filter((w) => !w.overrideRedirect && !w.tray)
+      .sort((a, b) => a.wid - b.wid);
+  });
+
   const toggleFullscreen = () => {
     if (document.fullscreenElement) {
       document.exitFullscreen();
@@ -230,6 +385,22 @@ export const Taskbar: Component = () => {
       console.log("[center-desktop] step 5: buffer_refresh");
       sendPacket([PACKET_TYPES.buffer_refresh, wid, 0, 100, { "refresh-now": true, batch: { reset: true } }, {}] as BufferRefreshPacket);
     }, 600);
+  };
+
+  const maximizeWindow = (wid: number) => {
+    const w = windows()[wid];
+    if (!w) return;
+    const fullW = window.innerWidth;
+    const fullH = window.innerHeight;
+    if (w.isDesktop) {
+      const desktopWin = Object.values(windows()).find((x) => x.isDesktop);
+      if (desktopWin?.wid === wid) centerDesktop();
+    } else {
+      updateWindowGeometry(wid, 0, 0, fullW, fullH);
+      resizeRenderer(wid, fullW, fullH);
+      sendPacket([PACKET_TYPES.configure_window, wid, 0, 0, fullW, fullH, {}, 0, {}, false] as ConfigureWindowPacket);
+      sendPacket([PACKET_TYPES.buffer_refresh, wid, 0, 100, { "refresh-now": true, batch: { reset: true } }, {}] as BufferRefreshPacket);
+    }
   };
 
   const fitToScreen = () => {
@@ -280,6 +451,8 @@ export const Taskbar: Component = () => {
             toggleFullscreen={toggleFullscreen}
             centerDesktop={centerDesktop}
             desktop={true}
+            openWindowsEntries={openWindowsEntries}
+            onMaximizeWindow={maximizeWindow}
           />
         </div>
       </Show>
