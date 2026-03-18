@@ -5,7 +5,7 @@
  */
 
 import { PACKET_TYPES } from "@/core/constants/packet-types";
-import { isDesktopWindow } from "@/store/windows";
+import { isDesktopWindow, detectAppHint } from "@/store/windows";
 import type {
   MapWindowPacket,
   ConfigureWindowPacket,
@@ -74,26 +74,48 @@ export function handleNewWindow(packet: NewWindowPacket, ctx: HandlerContext): v
       wid, w, h, winW, winH,
     );
   } else {
-    if (!metadata["fullscreen"] && !metadata["maximized"]) {
-      winW = Math.min(w, desktopWidth);
-      winH = Math.min(h, desktopHeight - TASKBAR_H);
-    }
+    const hasDesktop = Object.values(windows()).some((win) => win.isDesktop);
+    const appHint = detectAppHint(metadata);
+    const isTerminal = appHint === "terminal";
+    const isPopupLike = metadata["transient-for"] || metadata["modal"]
+      || (metadata["window-type"] as string[] | undefined)?.some(
+        (t) => t === "DIALOG" || t === "POPUP_MENU" || t === "DROPDOWN_MENU"
+              || t === "TOOLTIP" || t === "NOTIFICATION" || t === "COMBO"
+              || t === "UTILITY",
+      );
 
-    if (x === 0 && y === 0 && !metadata["set-initial-position"] && !metadata["fullscreen"]) {
-      if (windowCount === 0) {
-        posX = Math.round((desktopWidth - winW) / 2);
-        posY = Math.round((desktopHeight - TASKBAR_H - winH) / 2);
-        posX = Math.max(0, posX);
-        posY = Math.max(0, posY);
-      } else {
-        posX = Math.min(windowCount * 10, Math.max(0, desktopWidth - 100));
-        posY = 96;
+    if (!hasDesktop && windowCount === 0 && !isPopupLike && !isTerminal
+        && !metadata["fullscreen"] && !metadata["maximized"]) {
+      posX = 0;
+      posY = 0;
+      winW = desktopWidth;
+      winH = desktopHeight - TASKBAR_H;
+      console.log(
+        "[seamless] auto-maximize first window wid=%d to %dx%d",
+        wid, winW, winH,
+      );
+    } else {
+      if (!metadata["fullscreen"] && !metadata["maximized"]) {
+        winW = Math.min(w, desktopWidth);
+        winH = Math.min(h, desktopHeight - TASKBAR_H);
       }
-    }
 
-    const clamped = ensureVisible(posX, posY, winW, winH);
-    posX = clamped.x;
-    posY = clamped.y;
+      if (x === 0 && y === 0 && !metadata["set-initial-position"] && !metadata["fullscreen"]) {
+        if (windowCount === 0) {
+          posX = Math.round((desktopWidth - winW) / 2);
+          posY = Math.round((desktopHeight - TASKBAR_H - winH) / 2);
+          posX = Math.max(0, posX);
+          posY = Math.max(0, posY);
+        } else {
+          posX = Math.min(windowCount * 10, Math.max(0, desktopWidth - 100));
+          posY = 96;
+        }
+      }
+
+      const clamped = ensureVisible(posX, posY, winW, winH);
+      posX = clamped.x;
+      posY = clamped.y;
+    }
   }
 
   addWindow(wid, posX, posY, winW, winH, metadata, false, false, clientProps);

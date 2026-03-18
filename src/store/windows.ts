@@ -74,11 +74,12 @@ export function isDesktopWindow(metadata: WindowMetadata): boolean {
 
 export function detectAppHint(metadata: WindowMetadata): WindowAppHint {
   const ci = metadata["class-instance"] as string[] | undefined;
-  if (!ci || ci.length < 2) return "unknown";
-  const cls = ci[1].toLowerCase();
-  if (TERMINAL_CLASSES.some((t) => cls.includes(t))) return "terminal";
-  if (RDP_CLASSES.some((r) => cls.includes(r))) return "rdp";
-  if (BROWSER_CLASSES.some((b) => cls.includes(b))) return "browser";
+  if (ci && ci.length >= 2) {
+    const cls = ci[1].toLowerCase();
+    if (TERMINAL_CLASSES.some((t) => cls.includes(t))) return "terminal";
+    if (RDP_CLASSES.some((r) => cls.includes(r))) return "rdp";
+    if (BROWSER_CLASSES.some((b) => cls.includes(b))) return "browser";
+  }
   const title = ((metadata.title as string) ?? "").toLowerCase();
   if (title.includes("freerdp") || title.includes("rdp")) return "rdp";
   return "unknown";

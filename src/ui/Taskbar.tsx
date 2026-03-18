@@ -18,6 +18,7 @@ import {
   sendCloseWindow,
   updateWindowGeometry,
   sendPacket,
+  connectionStore,
   togglePerformancePanel,
   performancePanelVisible,
   toggleVirtualKeyboard,
@@ -174,6 +175,7 @@ const OpenWindowsDropdown: Component<{
 
 const TrayButtons: Component<{
   fitToScreen?: () => void;
+  fitMode?: () => "center" | "maximize";
   centerDesktop?: () => void;
   toggleFullscreen?: () => void;
   showFit?: boolean;
@@ -246,8 +248,8 @@ const TrayButtons: Component<{
         <path d="M8 16h8" />
       </svg>
     </button>
-    {/* Center desktop — desktop mode only */}
-    <Show when={props.desktop}>
+    {/* Center desktop — desktop mode only, hidden for RDP sessions */}
+    <Show when={props.desktop && props.centerDesktop}>
       <button
         class="taskbar-tray-btn"
         onClick={() => props.centerDesktop?.()}
@@ -271,29 +273,43 @@ const TrayButtons: Component<{
         </svg>
       </button>
     </Show>
-    {/* Center window — seamless only */}
+    {/* Center / Maximize toggle — seamless only */}
     <Show when={props.showFit}>
       <button
         class="taskbar-tray-btn"
         onClick={() => props.fitToScreen?.()}
-        title="Center window"
-        aria-label="Center window on screen"
+        title={props.fitMode?.() === "center" ? "Center window" : "Maximize window"}
+        aria-label={props.fitMode?.() === "center" ? "Center window on screen" : "Maximize window"}
       >
-        <svg
-          class="taskbar-tray-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <circle cx="12" cy="12" r="3" />
-          <path d="M12 2v4" />
-          <path d="M12 18v4" />
-          <path d="M2 12h4" />
-          <path d="M18 12h4" />
-        </svg>
+        <Show when={props.fitMode?.() === "maximize"} fallback={
+          <svg
+            class="taskbar-tray-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="3" />
+            <path d="M12 2v4" />
+            <path d="M12 18v4" />
+            <path d="M2 12h4" />
+            <path d="M18 12h4" />
+          </svg>
+        }>
+          <svg
+            class="taskbar-tray-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+          </svg>
+        </Show>
       </button>
     </Show>
     <button
@@ -329,6 +345,13 @@ export const Taskbar: Component = () => {
   const hasDesktopWindow = createMemo(() =>
     Object.values(windows()).some((w) => w.isDesktop),
   );
+
+  const isRdpDesktop = createMemo(() => {
+    if (!Object.values(windows()).some((w) => w.isDesktop)) return false;
+    const name = (connectionStore.sessionName ?? "").toLowerCase();
+    if (name.includes("rdp")) return true;
+    return Object.values(windows()).some((w) => w.appHint === "rdp");
+  });
 
   const entries = createMemo(() => {
     const all = windows();
@@ -403,6 +426,8 @@ export const Taskbar: Component = () => {
     }
   };
 
+  const [fitMode, setFitMode] = createSignal<"center" | "maximize">("center");
+
   const fitToScreen = () => {
     const wid = focusedWid();
     if (!wid) return;
@@ -410,14 +435,24 @@ export const Taskbar: Component = () => {
     if (!w || w.isDesktop) return;
 
     const TASKBAR_H = 40;
-    const PADDING = 40;
-    const maxW = window.innerWidth - PADDING * 2;
-    const maxH = window.innerHeight - TASKBAR_H - PADDING * 2;
+    let newX: number, newY: number, newW: number, newH: number;
 
-    const newW = Math.min(w.width, maxW);
-    const newH = Math.min(w.height, maxH);
-    const newX = Math.round((window.innerWidth - newW) / 2);
-    const newY = Math.round((window.innerHeight - TASKBAR_H - newH) / 2);
+    if (fitMode() === "center") {
+      const PADDING = 40;
+      const maxW = window.innerWidth - PADDING * 2;
+      const maxH = window.innerHeight - TASKBAR_H - PADDING * 2;
+      newW = Math.min(w.width, maxW);
+      newH = Math.min(w.height, maxH);
+      newX = Math.round((window.innerWidth - newW) / 2);
+      newY = Math.round((window.innerHeight - TASKBAR_H - newH) / 2);
+      setFitMode("maximize");
+    } else {
+      newX = 0;
+      newY = 0;
+      newW = window.innerWidth;
+      newH = window.innerHeight - TASKBAR_H;
+      setFitMode("center");
+    }
 
     updateWindowGeometry(wid, newX, newY, newW, newH);
     resizeRenderer(wid, newW, newH);
@@ -449,7 +484,7 @@ export const Taskbar: Component = () => {
         <div class="floating-toolbar">
           <TrayButtons
             toggleFullscreen={toggleFullscreen}
-            centerDesktop={centerDesktop}
+            centerDesktop={isRdpDesktop() ? undefined : centerDesktop}
             desktop={true}
             openWindowsEntries={openWindowsEntries}
             onMaximizeWindow={maximizeWindow}
@@ -482,6 +517,7 @@ export const Taskbar: Component = () => {
             <TrayButtons
               toggleFullscreen={toggleFullscreen}
               fitToScreen={fitToScreen}
+              fitMode={fitMode}
               showFit={focusedWid() > 0}
             />
           </div>

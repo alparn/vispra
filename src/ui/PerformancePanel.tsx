@@ -16,6 +16,7 @@ import {
   hidePerformancePanel,
   perfSettings,
   updatePerfSettings,
+  updateSettings,
   sendPacket,
   PERF_DEFAULTS,
   PERF_PRESETS,
@@ -23,6 +24,7 @@ import {
   type PerformanceSettings,
   type PresetId,
 } from "@/store";
+import { triggerConfigureDisplay } from "@/store/client-bridge";
 import { PACKET_TYPES } from "@/core/constants/packet-types";
 import "./PerformancePanel.css";
 
@@ -70,10 +72,14 @@ export const PerformancePanel: Component = () => {
     const next = local();
     updatePerfSettings(next);
 
+    updateSettings({ vrefresh: next.vrefresh });
+
     sendPacket([PACKET_TYPES.quality, next.quality]);
     sendPacket([PACKET_TYPES.min_quality, next.minQuality]);
     sendPacket([PACKET_TYPES.speed, next.speed]);
     sendPacket([PACKET_TYPES.min_speed, next.minSpeed]);
+
+    triggerConfigureDisplay();
 
     hidePerformancePanel();
   };
@@ -218,6 +224,17 @@ export const PerformancePanel: Component = () => {
                     step={10}
                     suffix="ms"
                     onChange={(v) => set("autoRefreshDelay", v)}
+                  />
+
+                  <Slider
+                    label="Refresh Rate (vrefresh)"
+                    hint="FPS sent to server (-1 = auto, 30 recommended for RDP)"
+                    value={local().vrefresh}
+                    min={-1}
+                    max={120}
+                    step={1}
+                    format={(v) => (v === -1 ? "auto" : `${v} fps`)}
+                    onChange={(v) => set("vrefresh", v)}
                   />
                 </div>
               </div>

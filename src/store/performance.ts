@@ -23,13 +23,15 @@ export interface PerformanceSettings {
   minSpeed: number;
   /** Lossless auto-refresh delay in ms after region becomes static */
   autoRefreshDelay: number;
+  /** Vertical refresh rate sent to server (-1 = auto, typical values: 30, 60) */
+  vrefresh: number;
 }
 
 // ---------------------------------------------------------------------------
 // Presets
 // ---------------------------------------------------------------------------
 
-export type PresetId = "sharp" | "balanced" | "fast" | "low-bandwidth";
+export type PresetId = "sharp" | "balanced" | "fast" | "low-bandwidth" | "rdp";
 
 export interface PerfPreset {
   id: PresetId;
@@ -45,33 +47,40 @@ export const PERF_PRESETS: readonly PerfPreset[] = [
     label: "Sharp",
     subtitle: "LAN / fast network",
     description: "Best image clarity, uses more bandwidth",
-    values: { quality: 100, minQuality: 80, speed: 70, minSpeed: 50, autoRefreshDelay: 100 },
+    values: { quality: 100, minQuality: 80, speed: 70, minSpeed: 50, autoRefreshDelay: 100, vrefresh: -1 },
   },
   {
     id: "balanced",
     label: "Balanced",
     subtitle: "default",
     description: "Good trade-off between clarity and responsiveness",
-    values: { quality: 80, minQuality: 50, speed: 90, minSpeed: 70, autoRefreshDelay: 150 },
+    values: { quality: 80, minQuality: 50, speed: 90, minSpeed: 70, autoRefreshDelay: 150, vrefresh: -1 },
   },
   {
     id: "fast",
     label: "Fast",
     subtitle: "slow network / VPN",
     description: "Smooth interaction, reduced sharpness during motion",
-    values: { quality: 60, minQuality: 30, speed: 100, minSpeed: 90, autoRefreshDelay: 300 },
+    values: { quality: 60, minQuality: 30, speed: 100, minSpeed: 90, autoRefreshDelay: 300, vrefresh: -1 },
   },
   {
     id: "low-bandwidth",
     label: "Low Bandwidth",
     subtitle: "very slow",
     description: "Minimum data usage, noticeably reduced quality",
-    values: { quality: 40, minQuality: 10, speed: 100, minSpeed: 95, autoRefreshDelay: 500 },
+    values: { quality: 40, minQuality: 10, speed: 100, minSpeed: 95, autoRefreshDelay: 500, vrefresh: -1 },
+  },
+  {
+    id: "rdp",
+    label: "RDP Session",
+    subtitle: "Windows Remote Desktop",
+    description: "Optimized for RDP: 30fps cap, high speed, low refresh delay",
+    values: { quality: 80, minQuality: 50, speed: 90, minSpeed: 90, autoRefreshDelay: 500, vrefresh: 30 },
   },
 ] as const;
 
 const PRESET_KEYS: readonly (keyof PerformanceSettings)[] = [
-  "quality", "minQuality", "speed", "minSpeed", "autoRefreshDelay",
+  "quality", "minQuality", "speed", "minSpeed", "autoRefreshDelay", "vrefresh",
 ];
 
 /** Return the preset whose values exactly match `settings`, or `null`. */
